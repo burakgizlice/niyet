@@ -4,7 +4,6 @@ import AddSteps from './components/AddSteps'
 import Chains from './components/Chains'
 import ChainEdit from './components/ChainEdit'
 import AuthView from './components/AuthView'
-import CelebrationBurst from './components/CelebrationBurst'
 import { useDone } from './hooks/useDone'
 import { useQueue } from './hooks/useQueue'
 import { useChains } from './hooks/useChains'
@@ -58,23 +57,18 @@ function App() {
     setShowCount(n)
   }
 
-  // Block 7 (burst) + Block 8 (streak): `done.length` grows only on a committed
-  // completion, so a rising-edge guard ensures we react only on real completions
-  // (never on mount). The streak increments on every committed completion; the
-  // burst fires on every 3rd completion or whenever a completion empties the
-  // queue. Driving both from this one signal keeps all reward effects (sound,
-  // checkmark, streak, burst) synchronized — they all land after the completion
-  // animation's REWARD_WINDOW + exit, since that's when done.length grows.
-  const [burstActive, setBurstActive] = useState(false)
+  // Block 8 (streak): `done.length` grows only on a committed completion, so a
+  // rising-edge guard ensures we react only on real completions (never on
+  // mount). The streak increments on every committed completion. The per-task
+  // reward visual is now the calligraphic cut drawn inside each TaskCard on tap
+  // (replacing the old screen-centre particle burst), so nothing screen-level
+  // fires here anymore.
   const prevDoneLength = useRef(done.length)
   useEffect(() => {
     if (done.length <= prevDoneLength.current) return
     prevDoneLength.current = done.length
     incrementStreak()
-    if (done.length % 3 === 0 || queueApi.queue.length === 0) {
-      setBurstActive(true)
-    }
-  }, [done.length, queueApi.queue.length, incrementStreak])
+  }, [done.length, incrementStreak])
 
   // Block 10: Temizle clears the done log and resets the streak in one gesture.
   // Composed here (not inside a hook) because resetStreak is only reachable
@@ -194,19 +188,16 @@ function App() {
   }
 
   return (
-    <>
-      <Queue
-        {...queueApi}
-        showCount={showCount}
-        setShowCount={handleCountChange}
-        doneItems={done}
-        onTemizle={handleTemizle}
-        onAddSteps={() => setView('add')}
-        onShowChains={() => setView('chains')}
-        onOpenAuth={() => setView('auth')}
-      />
-      <CelebrationBurst active={burstActive} onDone={() => setBurstActive(false)} />
-    </>
+    <Queue
+      {...queueApi}
+      showCount={showCount}
+      setShowCount={handleCountChange}
+      doneItems={done}
+      onTemizle={handleTemizle}
+      onAddSteps={() => setView('add')}
+      onShowChains={() => setView('chains')}
+      onOpenAuth={() => setView('auth')}
+    />
   )
 }
 
@@ -218,25 +209,57 @@ function LoadingScreen() {
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: '28px',
         minHeight: '100vh',
         backgroundColor: TOKENS.colors.bg,
       }}
     >
-      <style>{`@keyframes niyetWordmarkPulse { 0%,100% { opacity: 0.35 } 50% { opacity: 1 } }`}</style>
-      <span
-        lang="ar"
-        dir="rtl"
+      <div
         style={{
-          color: TOKENS.colors.gold,
-          fontSize: '3.5rem',
-          fontWeight: 600,
-          animation: 'niyetWordmarkPulse 1.8s ease-in-out infinite',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '160px',
+          height: '160px',
         }}
       >
-        نية
-      </span>
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle, rgba(31,177,121,0.28), transparent 70%)',
+            filter: 'blur(4px)',
+            animation: 'niyetBreath 2.4s ease-in-out infinite',
+          }}
+        />
+        <span
+          lang="ar"
+          dir="rtl"
+          style={{
+            position: 'relative',
+            fontFamily: TOKENS.fonts.arabic,
+            color: TOKENS.colors.goldLight,
+            fontSize: '4.5rem',
+            lineHeight: 1,
+            textShadow: '0 0 30px rgba(217,180,90,0.45)',
+            animation: 'niyetBreath 2.4s ease-in-out infinite',
+          }}
+        >
+          نية
+        </span>
+      </div>
+      <img
+        src="/wordmark-cream.svg"
+        alt="niyet"
+        style={{ height: '26px', width: 'auto', opacity: 0.65 }}
+      />
     </div>
   )
 }

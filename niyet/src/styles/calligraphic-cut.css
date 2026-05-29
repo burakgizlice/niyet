@@ -1,0 +1,56 @@
+/* Calligraphic Cut — the qalam-blade completion stroke. Consumed by
+ * CalligraphicCut.jsx, which sets the gradient + path inline; this file owns the
+ * shared keyframes and base rules so they live in the document once regardless of
+ * how many cuts fire. Replaces the old burst.css particle keyframes. */
+
+.niyet-cut {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 70%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.niyet-cut-line {
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+  filter: drop-shadow(0 0 4px rgba(217, 180, 90, 0.45));
+  will-change: stroke-dashoffset;
+  animation: niyetCutDraw 0.42s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Reduced motion: present the finished stroke with no draw. */
+.niyet-cut-line--static {
+  stroke-dashoffset: 0;
+  animation: none;
+}
+
+.niyet-cut-spark {
+  opacity: 0;
+  /* Scale about the dot's own centre, not the SVG origin. */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: niyetCutSpark 0.4s ease-out 0.34s forwards;
+}
+
+@keyframes niyetCutDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes niyetCutSpark {
+  0% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}

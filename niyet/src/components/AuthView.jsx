@@ -93,18 +93,21 @@ export default function AuthView({ onBack, signInWithMagicLink, signInWithGoogle
         <h1
           style={{
             color: TOKENS.colors.textPrimary,
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            margin: '8px 0 8px',
+            fontFamily: TOKENS.fonts.display,
+            fontSize: '2rem',
+            fontWeight: 500,
+            letterSpacing: '-0.02em',
+            margin: '8px 0 10px',
           }}
         >
           Cihazlar arası eşitle
         </h1>
+        <div className="niyet-gold-rule" style={{ maxWidth: '120px', marginBottom: '16px' }} />
         <p
           style={{
             color: TOKENS.colors.textMuted,
             fontSize: '0.95rem',
-            lineHeight: 1.5,
+            lineHeight: 1.55,
             margin: '0 0 24px',
           }}
         >
@@ -123,12 +126,14 @@ export default function AuthView({ onBack, signInWithMagicLink, signInWithGoogle
             width: '100%',
             boxSizing: 'border-box',
             background: TOKENS.colors.surface,
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             color: TOKENS.colors.textPrimary,
-            border: `1px solid ${TOKENS.colors.emeraldDim}`,
+            border: `1px solid ${TOKENS.lines.emerald}`,
             borderRadius: TOKENS.radii.card,
-            padding: '0.9rem 1rem',
+            padding: '0.95rem 1.1rem',
             fontSize: '1.1rem',
-            fontFamily: TOKENS.typography.fontFamily,
+            fontFamily: TOKENS.fonts.ui,
             outline: 'none',
           }}
         />
@@ -137,18 +142,21 @@ export default function AuthView({ onBack, signInWithMagicLink, signInWithGoogle
           type="button"
           onClick={handleSend}
           disabled={sending}
+          className={sending ? undefined : 'niyet-shimmer'}
           style={{
-            marginTop: '12px',
-            background: sending ? 'rgba(255,255,255,0.06)' : TOKENS.colors.gold,
-            color: sending ? TOKENS.colors.textDim : '#000',
+            marginTop: '14px',
+            background: sending ? 'rgba(31,177,121,0.06)' : TOKENS.gradients.goldButton,
+            color: sending ? TOKENS.colors.textDim : '#2a1e05',
+            fontFamily: TOKENS.fonts.ui,
             fontWeight: 700,
             fontSize: '1rem',
             border: 'none',
-            borderRadius: '999px',
-            padding: '12px 24px',
-            minHeight: '44px',
+            borderRadius: TOKENS.radii.pill,
+            padding: '13px 24px',
+            minHeight: '46px',
             cursor: sending ? 'not-allowed' : 'pointer',
-            transition: 'background 0.15s, color 0.15s',
+            boxShadow: sending ? 'none' : TOKENS.shadows.gold,
+            transition: 'background 0.2s, color 0.2s',
           }}
         >
           {sending ? 'Gönderiliyor…' : 'Sihirli bağlantı gönder'}
@@ -187,9 +195,21 @@ export default function AuthView({ onBack, signInWithMagicLink, signInWithGoogle
             margin: '24px 0',
           }}
         >
-          <span style={{ flex: 1, height: '1px', background: TOKENS.colors.emeraldDim }} />
+          <span
+            style={{
+              flex: 1,
+              height: '1px',
+              background: 'linear-gradient(90deg, transparent, rgba(217,180,90,0.45))',
+            }}
+          />
           <span style={{ color: TOKENS.colors.textDim, fontSize: '0.8rem' }}>veya</span>
-          <span style={{ flex: 1, height: '1px', background: TOKENS.colors.emeraldDim }} />
+          <span
+            style={{
+              flex: 1,
+              height: '1px',
+              background: 'linear-gradient(90deg, rgba(217,180,90,0.45), transparent)',
+            }}
+          />
         </div>
 
         <button

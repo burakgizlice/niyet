@@ -78,7 +78,8 @@ export default function CheckboxButton({ checked = false, onComplete, disabled =
           height: '28px',
           boxSizing: 'border-box',
           borderRadius: '999px',
-          border: `2px solid ${TOKENS.colors.emerald}`,
+          border: `2px solid ${TOKENS.colors.emeraldBright}`,
+          boxShadow: '0 0 0 4px rgba(31,177,121,0.08)',
         }}
       >
         <svg

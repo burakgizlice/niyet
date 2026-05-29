@@ -1,7 +1,8 @@
+import { useState, useRef, useEffect } from 'react'
 import { TOKENS } from '../tokens'
 import CountSelector from './CountSelector'
 import TaskCard from './TaskCard'
-import FireBadge from './FireBadge'
+import Bostan from './Bostan'
 import AuthHeader from './AuthHeader'
 import DoneLog from './DoneLog'
 import EmptyState from './EmptyState'
@@ -20,6 +21,9 @@ import EmptyState from './EmptyState'
  *   completingIds: Set<string>,
  *   completeTask: (id: string) => void,
  *   finalizeComplete: (id: string) => void,
+ *   editTask: (id: string, text: string) => void,
+ *   removeTask: (id: string) => void,
+ *   clearQueue: () => void,
  *   doneItems: { id: string, text: string, completedAt: number }[],
  *   onTemizle: () => void,
  *   onAddSteps: () => void,
@@ -34,6 +38,9 @@ export default function Queue({
   completingIds,
   completeTask,
   finalizeComplete,
+  editTask,
+  removeTask,
+  clearQueue,
   doneItems,
   onTemizle,
   onAddSteps,
@@ -43,6 +50,29 @@ export default function Queue({
   const current = queue[0] ?? null
   const visibleTasks = queue.slice(0, showCount)
   const queued = queue.length - showCount
+
+  // 'Sıfırla' (clear the whole queue) is a two-tap inline confirm: the first tap
+  // arms it ('Emin misin?') for CLEAR_CONFIRM_MS, the second tap wipes. A lone
+  // accidental tap reverts on its own — no off-brand confirm() dialog.
+  const [confirmingClear, setConfirmingClear] = useState(false)
+  const confirmTimerRef = useRef(null)
+  useEffect(
+    () => () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+    },
+    [],
+  )
+  const CLEAR_CONFIRM_MS = 3000
+  const handleClearClick = () => {
+    if (confirmingClear) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      setConfirmingClear(false)
+      clearQueue()
+    } else {
+      setConfirmingClear(true)
+      confirmTimerRef.current = setTimeout(() => setConfirmingClear(false), CLEAR_CONFIRM_MS)
+    }
+  }
 
   return (
     <div
@@ -56,24 +86,40 @@ export default function Queue({
       }}
     >
       <div style={{ maxWidth: TOKENS.spacing.containerMaxWidth, width: '100%' }}>
-        {/* Header seam: fixed minHeight reserves space so the badge appearing /
-            growing across tiers never shifts the cards down (glow overflows
-            visually). space-between pins the FireBadge to the right edge so the
-            auth affordance on the left can change width (Eşitle ↔ avatar pill)
-            without nudging the streak (Block 17, step 17.7). */}
+        {/* Brand mark — the Aref Ruqaa wordmark on cream, the app's signature. */}
+        <div
+          className="niyet-fade-up"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '18px',
+          }}
+        >
+          <img
+            src="/wordmark-cream.svg"
+            alt="niyet"
+            style={{ height: '34px', width: 'auto', opacity: 0.96 }}
+          />
+          <div className="niyet-gold-rule" style={{ maxWidth: '180px' }} />
+        </div>
+        {/* Auth affordance (Eşitle ↔ avatar pill). The streak now lives in its
+            own full-width bostan strip below, so this row holds only auth. */}
         <header
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-start',
             alignItems: 'center',
-            minHeight: '56px',
-            overflow: 'visible',
+            minHeight: '48px',
             marginBottom: '8px',
           }}
         >
           <AuthHeader onOpenAuth={onOpenAuth} />
-          <FireBadge />
         </header>
+        {/* The bostan: a garden bed that fills with gold-line tulips, one per
+            completed micro-action. Renders nothing at count 0. */}
+        <Bostan />
         {current !== null ? (
           <>
             <CountSelector value={showCount} onChange={setShowCount} />
@@ -94,8 +140,9 @@ export default function Queue({
                   isCompleting={completingIds.has(task.id)}
                   onComplete={completeTask}
                   onCompleteEnd={finalizeComplete}
+                  onEdit={editTask}
+                  onDelete={removeTask}
                   isInteractive
-
                 />
               ))}
             </div>
@@ -131,16 +178,20 @@ export default function Queue({
           <button
             type="button"
             onClick={onAddSteps}
+            className="niyet-shimmer"
             style={{
-              background: TOKENS.colors.surfaceRaised,
-              color: TOKENS.colors.gold,
-              fontWeight: 600,
+              background: TOKENS.gradients.goldButton,
+              color: '#2a1e05',
+              fontFamily: TOKENS.fonts.ui,
+              fontWeight: 700,
               fontSize: '1rem',
-              border: `1px solid ${TOKENS.colors.gold}`,
-              borderRadius: '999px',
-              padding: '10px 24px',
-              minHeight: '44px',
+              letterSpacing: '0.01em',
+              border: 'none',
+              borderRadius: TOKENS.radii.pill,
+              padding: '12px 28px',
+              minHeight: '46px',
               cursor: 'pointer',
+              boxShadow: TOKENS.shadows.gold,
             }}
           >
             + Ekle
@@ -149,20 +200,44 @@ export default function Queue({
             type="button"
             onClick={onShowChains}
             style={{
-              background: 'transparent',
-              color: TOKENS.colors.textMuted,
+              background: 'rgba(31,177,121,0.06)',
+              color: TOKENS.colors.textPrimary,
+              fontFamily: TOKENS.fonts.ui,
               fontWeight: 600,
               fontSize: '1rem',
-              border: `1px solid ${TOKENS.colors.emeraldDim}`,
-              borderRadius: '999px',
-              padding: '10px 24px',
-              minHeight: '44px',
+              border: `1px solid ${TOKENS.lines.emerald}`,
+              borderRadius: TOKENS.radii.pill,
+              padding: '12px 28px',
+              minHeight: '46px',
               cursor: 'pointer',
             }}
           >
             Zincirler
           </button>
         </div>
+        {current !== null && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+            <button
+              type="button"
+              onClick={handleClearClick}
+              style={{
+                background: 'transparent',
+                color: confirmingClear ? TOKENS.colors.error : TOKENS.colors.textDim,
+                fontFamily: TOKENS.fonts.ui,
+                fontSize: '0.8rem',
+                letterSpacing: '0.02em',
+                border: `1px solid ${confirmingClear ? TOKENS.colors.error : TOKENS.lines.hair}`,
+                borderRadius: TOKENS.radii.pill,
+                padding: '0.4rem 1rem',
+                minHeight: '34px',
+                cursor: 'pointer',
+                transition: `color 160ms ${TOKENS.motion.easeOut}, border-color 160ms ${TOKENS.motion.easeOut}`,
+              }}
+            >
+              {confirmingClear ? 'Emin misin?' : 'Sıfırla'}
+            </button>
+          </div>
+        )}
         <DoneLog doneItems={doneItems} onTemizle={onTemizle} />
       </div>
     </div>

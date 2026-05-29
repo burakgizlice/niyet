@@ -6,12 +6,14 @@ const inputStyle = {
   width: '100%',
   boxSizing: 'border-box',
   background: TOKENS.colors.surface,
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
   color: TOKENS.colors.textPrimary,
-  border: `1px solid ${TOKENS.colors.emeraldDim}`,
-  borderRadius: '8px',
-  padding: '10px 14px',
+  border: `1px solid ${TOKENS.lines.emerald}`,
+  borderRadius: TOKENS.radii.sm,
+  padding: '11px 14px',
   fontSize: '1rem',
-  fontFamily: TOKENS.typography.fontFamily,
+  fontFamily: TOKENS.fonts.ui,
   outline: 'none',
   minHeight: '44px',
 }
@@ -19,9 +21,11 @@ const inputStyle = {
 const labelStyle = {
   display: 'block',
   color: TOKENS.colors.textMuted,
-  fontSize: '0.85rem',
+  fontFamily: TOKENS.fonts.ui,
+  fontSize: '0.8rem',
   fontWeight: 600,
-  margin: '16px 0 6px',
+  letterSpacing: '0.02em',
+  margin: '18px 0 6px',
 }
 
 const errorStyle = { color: '#ef4444', fontSize: '0.8rem', margin: '4px 2px 0' }
@@ -134,14 +138,17 @@ export default function ChainEdit({ chain, onSave, onCancel, onDelete, onReset }
 
         <h1
           style={{
-            color: TOKENS.colors.gold,
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            margin: '8px 0 8px',
+            color: TOKENS.colors.textPrimary,
+            fontFamily: TOKENS.fonts.display,
+            fontSize: '2rem',
+            fontWeight: 500,
+            letterSpacing: '-0.02em',
+            margin: '8px 0 10px',
           }}
         >
           {chain ? 'Zinciri Düzenle' : 'Yeni Zincir'}
         </h1>
+        <div className="niyet-gold-rule" style={{ maxWidth: '120px' }} />
 
         <label style={labelStyle} htmlFor="chain-name">
           Zincir adı
@@ -220,17 +227,20 @@ export default function ChainEdit({ chain, onSave, onCancel, onDelete, onReset }
         <button
           type="button"
           onClick={handleSave}
+          className="niyet-shimmer"
           style={{
-            marginTop: '20px',
-            background: TOKENS.colors.emerald,
-            color: '#000',
+            marginTop: '24px',
+            background: TOKENS.gradients.goldButton,
+            color: '#2a1e05',
+            fontFamily: TOKENS.fonts.ui,
             fontWeight: 700,
             fontSize: '1rem',
             border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            minHeight: '44px',
+            borderRadius: TOKENS.radii.pill,
+            padding: '13px 24px',
+            minHeight: '46px',
             cursor: 'pointer',
+            boxShadow: TOKENS.shadows.gold,
           }}
         >
           Kaydet

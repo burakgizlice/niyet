@@ -18,12 +18,16 @@ export function StreakProvider({ children }) {
   // Called by Block 10 (DoneLog/Temizle) on session clear.
   const resetStreak = React.useCallback(() => setStreakCount(0), [])
 
-  // Dev-only console handle for manual reset testing (Block 8 verification).
+  // Dev-only console handles for manual streak testing (Block 8 verification /
+  // bostan visual checks). __debug_setStreak jumps straight to any count so the
+  // garden can be inspected at each tier without clicking through completions.
   React.useEffect(() => {
     if (!import.meta.env.DEV) return undefined
     window.__debug_resetStreak = resetStreak
+    window.__debug_setStreak = (n) => setStreakCount(Math.max(0, Math.floor(n)))
     return () => {
       delete window.__debug_resetStreak
+      delete window.__debug_setStreak
     }
   }, [resetStreak])
 

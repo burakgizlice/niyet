@@ -1,0 +1,58 @@
+/* Block 8 (reskinned): bostan tulip animations. The glyph art is gold-line SVG
+ * set by Tulip.jsx; this file holds only the motion, which can't be expressed
+ * as inline styles in React.
+ *
+ * Every tulip sways on a slow idle "breeze", desynced by --breeze-delay so the
+ * bed shimmers like a field rather than pulsing in unison. The newest tulip
+ * gets `.planting` (more specific, so it overrides the breeze for its lifetime
+ * without !important); Bostan removes the class after ~720ms and the breeze
+ * resumes. All rotation pivots at the stem base (50% 100%) so tulips bend, not
+ * float. */
+.tulip {
+  transform-origin: 50% 100%;
+  animation: tulipBreeze 5s ease-in-out infinite;
+  animation-delay: var(--breeze-delay, 0s);
+  will-change: transform;
+}
+
+.tulip.planting {
+  animation: tulipPlant 720ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tulipBreeze {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: rotate(1.6deg);
+  }
+}
+
+/* Grow up out of the soil with a soft overshoot, then a settling sway. */
+@keyframes tulipPlant {
+  0% {
+    transform: translateY(7px) scale(0.18);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0) scale(1.14);
+    opacity: 1;
+  }
+  72% {
+    transform: rotate(4deg) scale(1.04);
+  }
+  86% {
+    transform: rotate(-3deg) scale(1);
+  }
+  100% {
+    transform: rotate(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tulip,
+  .tulip.planting {
+    animation: none;
+  }
+}

@@ -1,9 +1,9 @@
 import React from 'react'
-import { playTickSound } from '../lib/audio'
+import { playCutSound } from '../lib/audio'
 import { REWARD_WINDOW_MS } from '../constants/animation'
 import { readQueue, writeQueue } from '../lib/storage'
 import { useAuth } from './useAuth'
-import { syncQueueAdd, syncQueueRemove } from '../lib/sync'
+import { syncQueueAdd, syncQueueRemove, syncQueueClear } from '../lib/sync'
 
 /** @typedef {{ id: string, text: string }} Task */
 
@@ -46,9 +46,9 @@ export function useQueue({ addDone } = {}) {
     queueRef.current = queue
   }, [queue])
 
-  // Mirror of completingIds so the mutex check + the playTickSound() side effect
+  // Mirror of completingIds so the mutex check + the playCutSound() side effect
   // run OUTSIDE the setCompletingIds updater. Updaters must stay pure: StrictMode
-  // double-invokes them in dev, which would fire the tick twice per completion.
+  // double-invokes them in dev, which would fire the cut twice per completion.
   const completingIdsRef = React.useRef(completingIds)
   React.useEffect(() => {
     completingIdsRef.current = completingIds
@@ -68,7 +68,7 @@ export function useQueue({ addDone } = {}) {
     }
   }, [])
 
-  // Starts the completion sequence. Plays the tick immediately, then HOLDS the
+  // Starts the completion sequence. Plays the cut sound immediately, then HOLDS the
   // card stationary for REWARD_WINDOW_MS (so the checkmark draw + glow register)
   // before adding the id to completingIds — which is what kicks off the exit
   // animation. No-op while the task is already rewarding or animating out
@@ -78,7 +78,7 @@ export function useQueue({ addDone } = {}) {
       return // mutex: ignore re-entry during hold or exit
     }
     rewardingIdsRef.current.add(id)
-    playTickSound() // real completion start -> fire the reward tick
+    playCutSound() // real completion start -> fire the calligraphic-cut sound
     const timer = setTimeout(() => {
       rewardingIdsRef.current.delete(id)
       rewardTimersRef.current.delete(id)
@@ -130,6 +130,45 @@ export function useQueue({ addDone } = {}) {
     })
   }, [])
 
+  // Edit a queued item's text in place. Trims and guards against empty/unchanged
+  // text (the caller treats an empty save as a cancel, but we double-guard here).
+  // syncQueueAdd is an upsert by id, so re-mirroring with the same id updates the
+  // remote row's text; position is the item's current array index.
+  const editTask = React.useCallback((id, text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    const index = queueRef.current.findIndex((t) => t.id === id)
+    if (index === -1) return
+    if (queueRef.current[index].text === trimmed) return
+    const nextQueue = queueRef.current.map((t) =>
+      t.id === id ? { ...t, text: trimmed } : t,
+    )
+    writeQueue(nextQueue)
+    setQueue(nextQueue)
+    syncQueueAdd(userIdRef.current, { id, text: trimmed, position: index })
+  }, [])
+
+  // Silent removal: drop a queued item without completing it — NOT pushed to the
+  // done store, so no streak, celebration, or tulip. Distinct from
+  // finalizeComplete. Idempotent: a missing id is a no-op.
+  const removeTask = React.useCallback((id) => {
+    if (!queueRef.current.some((t) => t.id === id)) return
+    const nextQueue = queueRef.current.filter((t) => t.id !== id)
+    writeQueue(nextQueue)
+    setQueue(nextQueue)
+    syncQueueRemove(userIdRef.current, id)
+  }, [])
+
+  // Wipe the entire queue in one gesture (the 'Sıfırla' control). Like
+  // removeTask, completed items are untouched — this only empties the active
+  // queue. The remote mirror is a single DELETE (syncQueueClear), not N removes.
+  const clearQueue = React.useCallback(() => {
+    if (queueRef.current.length === 0) return
+    writeQueue([])
+    setQueue([])
+    syncQueueClear(userIdRef.current)
+  }, [])
+
   // Block 18: replace the queue wholesale with mergeOnLogin's merged result.
   // localStorage was already written by mergeOnLogin (setAll) — this only syncs
   // React state. queueRef catches up via its effect.
@@ -143,6 +182,9 @@ export function useQueue({ addDone } = {}) {
     completeTask,
     finalizeComplete,
     appendSteps,
+    editTask,
+    removeTask,
+    clearQueue,
     hydrate,
   }
 }

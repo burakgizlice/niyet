@@ -1,4 +1,3 @@
-import React from 'react'
 import { TOKENS } from '../tokens'
 
 const OPTIONS = [1, 2, 3, 5]
@@ -28,18 +27,18 @@ export default function CountSelector({ value, onChange }) {
             aria-pressed={active}
             onClick={() => onChange(n)}
             style={{
-              background: active
-                ? TOKENS.colors.gold
-                : 'rgba(255,255,255,0.08)',
-              color: active ? '#000' : TOKENS.colors.textMuted,
-              fontWeight: active ? 700 : 400,
-              borderRadius: '999px',
-              padding: '6px 16px',
-              border: 'none',
+              background: active ? TOKENS.gradients.goldButton : 'rgba(31,177,121,0.07)',
+              color: active ? '#2a1e05' : TOKENS.colors.textMuted,
+              fontFamily: TOKENS.fonts.ui,
+              fontWeight: active ? 700 : 500,
+              borderRadius: TOKENS.radii.pill,
+              padding: '7px 17px',
+              border: active ? 'none' : `1px solid ${TOKENS.lines.hair}`,
               cursor: 'pointer',
               fontSize: '0.9rem',
-              minWidth: '40px',
-              transition: 'background 0.15s, color 0.15s',
+              minWidth: '42px',
+              boxShadow: active ? TOKENS.shadows.gold : 'none',
+              transition: 'background 0.2s, color 0.2s, box-shadow 0.2s',
             }}
           >
             {n}

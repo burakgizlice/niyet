@@ -77,14 +77,17 @@ export default function Chains({ chains, setView, setSelectedChain, appendSteps,
 
         <h1
           style={{
-            color: TOKENS.colors.gold,
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            margin: '8px 0 16px',
+            color: TOKENS.colors.textPrimary,
+            fontFamily: TOKENS.fonts.display,
+            fontSize: '2rem',
+            fontWeight: 500,
+            letterSpacing: '-0.02em',
+            margin: '8px 0 10px',
           }}
         >
           Zincirler
         </h1>
+        <div className="niyet-gold-rule" style={{ maxWidth: '120px', marginBottom: '20px' }} />
 
         {chains.length === 0 ? (
           <p
@@ -107,7 +110,9 @@ export default function Chains({ chains, setView, setSelectedChain, appendSteps,
                   alignItems: 'stretch',
                   gap: '8px',
                   background: TOKENS.colors.surface,
-                  border: `1px solid ${TOKENS.colors.emeraldDim}`,
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: `1px solid ${TOKENS.lines.emerald}`,
                   borderRadius: TOKENS.radii.card,
                   overflow: 'hidden',
                 }}
@@ -133,7 +138,15 @@ export default function Chains({ chains, setView, setSelectedChain, appendSteps,
                   <span style={{ fontSize: '1.75rem', lineHeight: 1, flexShrink: 0 }} aria-hidden="true">
                     {chain.emoji}
                   </span>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>{chain.name}</span>
+                  <span
+                    style={{
+                      fontFamily: TOKENS.fonts.display,
+                      fontSize: '1.2rem',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {chain.name}
+                  </span>
                 </button>
                 {confirmingId === chain.id ? (
                   <div style={{ display: 'flex', flexShrink: 0 }}>
@@ -219,18 +232,21 @@ export default function Chains({ chains, setView, setSelectedChain, appendSteps,
         <button
           type="button"
           onClick={createNew}
+          className="niyet-shimmer"
           style={{
             alignSelf: 'center',
-            marginTop: '1.5rem',
-            background: TOKENS.colors.surfaceRaised,
-            color: TOKENS.colors.gold,
-            fontWeight: 600,
+            marginTop: '1.75rem',
+            background: TOKENS.gradients.goldButton,
+            color: '#2a1e05',
+            fontFamily: TOKENS.fonts.ui,
+            fontWeight: 700,
             fontSize: '1rem',
-            border: `1px solid ${TOKENS.colors.gold}`,
-            borderRadius: '999px',
-            padding: '10px 24px',
-            minHeight: '44px',
+            border: 'none',
+            borderRadius: TOKENS.radii.pill,
+            padding: '12px 28px',
+            minHeight: '46px',
             cursor: 'pointer',
+            boxShadow: TOKENS.shadows.gold,
           }}
         >
           + Yeni zincir

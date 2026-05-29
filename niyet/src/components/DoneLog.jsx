@@ -24,18 +24,19 @@ export default function DoneLog({ doneItems, onTemizle }) {
     <section
       style={{
         marginTop: '2.5rem',
-        paddingTop: '1.25rem',
-        borderTop: `1px solid ${TOKENS.colors.emeraldDim}`,
+        paddingTop: '1.5rem',
       }}
     >
+      <div className="niyet-gold-rule" style={{ opacity: 0.6, marginBottom: '1.25rem' }} />
       <h2
         style={{
-          color: TOKENS.colors.textMuted,
-          fontSize: '0.8rem',
-          fontWeight: 600,
-          letterSpacing: '0.04em',
+          color: TOKENS.colors.gold,
+          fontFamily: TOKENS.fonts.ui,
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          letterSpacing: '0.18em',
           textTransform: 'uppercase',
-          margin: '0 0 12px',
+          margin: '0 0 14px',
         }}
       >
         Tamamlananlar
@@ -97,13 +98,14 @@ export default function DoneLog({ doneItems, onTemizle }) {
             type="button"
             onClick={onTemizle}
             style={{
-              marginTop: '16px',
+              marginTop: '18px',
               background: 'transparent',
               color: TOKENS.colors.textMuted,
+              fontFamily: TOKENS.fonts.ui,
               fontSize: '0.8rem',
-              border: `1px solid ${TOKENS.colors.emeraldDim}`,
-              borderRadius: '6px',
-              padding: '0.4rem 0.9rem',
+              border: `1px solid ${TOKENS.lines.emerald}`,
+              borderRadius: TOKENS.radii.pill,
+              padding: '0.5rem 1.1rem',
               minHeight: '36px',
               cursor: 'pointer',
             }}

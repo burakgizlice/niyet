@@ -75,13 +75,16 @@ export default function AddSteps({ onBack, onSubmit }) {
         <h1
           style={{
             color: TOKENS.colors.textPrimary,
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            margin: '8px 0 16px',
+            fontFamily: TOKENS.fonts.display,
+            fontSize: '2rem',
+            fontWeight: 500,
+            letterSpacing: '-0.02em',
+            margin: '8px 0 10px',
           }}
         >
           Adım Ekle
         </h1>
+        <div className="niyet-gold-rule" style={{ maxWidth: '120px', marginBottom: '20px' }} />
 
         <textarea
           ref={textareaRef}
@@ -95,13 +98,15 @@ export default function AddSteps({ onBack, onSubmit }) {
             boxSizing: 'border-box',
             resize: 'vertical',
             background: TOKENS.colors.surface,
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             color: TOKENS.colors.textPrimary,
-            border: `1px solid ${TOKENS.colors.emeraldDim}`,
+            border: `1px solid ${TOKENS.lines.emerald}`,
             borderRadius: TOKENS.radii.card,
-            padding: '1rem',
+            padding: '1.1rem',
             fontSize: '1.1rem',
             lineHeight: '1.5',
-            fontFamily: TOKENS.typography.fontFamily,
+            fontFamily: TOKENS.fonts.ui,
             outline: 'none',
           }}
         />
@@ -120,18 +125,21 @@ export default function AddSteps({ onBack, onSubmit }) {
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
+          className={canSubmit ? 'niyet-shimmer' : undefined}
           style={{
-            marginTop: '16px',
-            background: canSubmit ? TOKENS.colors.emerald : 'rgba(255,255,255,0.06)',
-            color: canSubmit ? '#000' : TOKENS.colors.textDim,
+            marginTop: '18px',
+            background: canSubmit ? TOKENS.gradients.goldButton : 'rgba(31,177,121,0.06)',
+            color: canSubmit ? '#2a1e05' : TOKENS.colors.textDim,
+            fontFamily: TOKENS.fonts.ui,
             fontWeight: 700,
             fontSize: '1rem',
-            border: `1px solid ${canSubmit ? TOKENS.colors.gold : 'transparent'}`,
-            borderRadius: '999px',
-            padding: '12px 24px',
-            minHeight: '44px',
+            border: canSubmit ? 'none' : `1px solid ${TOKENS.lines.hair}`,
+            borderRadius: TOKENS.radii.pill,
+            padding: '13px 24px',
+            minHeight: '46px',
             cursor: canSubmit ? 'pointer' : 'not-allowed',
-            transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+            boxShadow: canSubmit ? TOKENS.shadows.gold : 'none',
+            transition: 'background 0.2s, color 0.2s, box-shadow 0.2s',
           }}
         >
           Ekle

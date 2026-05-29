@@ -1,66 +1,40 @@
 :root {
-  /* Colors — placeholder hex values; canonical names are frozen for later blocks */
-  --color-bg-start: #0a2e1c; /* TODO: finalise */
-  --color-bg-end: #061a10; /* TODO: finalise */
-  --color-surface: rgba(10, 60, 30, 0.7); /* TODO: finalise */
-  --color-surface-raised: rgba(16, 78, 42, 0.8); /* TODO: finalise */
-  --color-border: rgba(255, 255, 255, 0.08); /* TODO: finalise */
-  --color-text-primary: #f0ede6; /* TODO: finalise */
-  --color-text-secondary: #a89f8c; /* TODO: finalise */
-  --color-text-muted: #6f6857; /* TODO: finalise */
-  --color-gold: #c9a84c; /* TODO: finalise */
-  --color-gold-dim: #9a803a; /* TODO: finalise */
-  --color-gold-glow: rgba(201, 168, 76, 0.4); /* TODO: finalise */
-  --color-emerald-accent: #2ecc71; /* TODO: finalise */
-  --color-danger: #e74c3c; /* TODO: finalise */
+  /* ── Brand palette (mirrors src/tokens.js) ──────────────────────────── */
+  --color-bg: #06160e;
+  --color-bg-deep: #040f09;
+  --color-surface: rgba(14, 52, 34, 0.55);
+  --color-surface-raised: rgba(21, 67, 44, 0.74);
+  --color-border: rgba(246, 244, 233, 0.08);
 
-  /* Typography */
-  --font-family-base: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-family-display: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
+  --color-emerald: #1fb179;
+  --color-emerald-bright: #34d99a;
+  --color-emerald-deep: #085236;
+  --color-emerald-accent: #1fb179;
+
+  --color-gold: #d9b45a;
+  --color-gold-light: #f2d98a;
+  --color-gold-deep: #a8842f;
+  --color-gold-glow: rgba(217, 180, 90, 0.4);
+
+  --color-text-primary: #f6f4e9;
+  --color-text-secondary: #9dbfa9;
+  --color-text-muted: #5e806b;
+  --color-danger: #e2574c;
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  --font-family-base: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-family-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-family-arabic: 'Aref Ruqaa', Georgia, serif;
   --font-size-base: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.5rem;
-  --font-size-2xl: 2rem;
-  --font-size-3xl: 3rem;
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-bold: 700;
-  --line-height-tight: 1.2;
   --line-height-base: 1.6;
 
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
-
-  /* Radii */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-full: 9999px;
-
-  /* Transitions */
+  /* ── Motion ─────────────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: 150ms ease;
   --transition-base: 300ms ease;
-  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Layout */
+  /* ── Layout ─────────────────────────────────────────────────────────── */
   --container-max-width: 480px;
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
-
-  /* Block 2: canonical token vars (mirror src/tokens.js for global/reset CSS) */
-  --color-bg: #0a1a12;
-  --color-surface: #0f2318;
-  --color-surface-raised: #163320;
-  --color-emerald: #10b981;
-  --color-gold: #d4af37;
-  --color-text-primary: #f0fdf4;
-  --color-text-muted: #6b9e7a;
 }
 
 *,
@@ -71,21 +45,163 @@
   padding: 0;
 }
 
+html {
+  background: var(--color-bg-deep);
+}
+
 body {
-  background: var(--color-bg);
   min-height: 100vh;
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
+  position: relative;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* Atmosphere: emerald glow from above, deep pool below, brand night base. */
+  background:
+    radial-gradient(125% 80% at 50% -12%, rgba(31, 177, 121, 0.26), transparent 56%),
+    radial-gradient(110% 65% at 50% 112%, rgba(8, 82, 54, 0.42), transparent 60%),
+    radial-gradient(80% 50% at 88% 8%, rgba(217, 180, 90, 0.08), transparent 55%),
+    linear-gradient(180deg, #06160e 0%, #040f09 100%);
+  background-attachment: fixed;
+}
+
+/* Faint gold hilāl — a lattice of crescent moons with a small sparkle star,
+   the classic crescent-and-star motif. Fixed so it reads as a backdrop, not a
+   scrolling texture. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M39.08 22.04 A14 14 0 1 0 39.08 49.96 A12.6 12.6 0 1 1 39.08 22.04 Z' fill='none' stroke='%23d9b45a' stroke-width='0.7' opacity='0.17'/%3E%3Cpath d='M57 14 L58.2 18.8 L63 20 L58.2 21.2 L57 26 L55.8 21.2 L51 20 L55.8 18.8 Z' fill='%23d9b45a' opacity='0.15'/%3E%3C/svg%3E");
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 30%, #000 0%, transparent 80%);
+  mask-image: radial-gradient(120% 90% at 50% 30%, #000 0%, transparent 80%);
 }
 
 #root {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+/* ── Reusable gold hairline rule ──────────────────────────────────────── */
+.niyet-gold-rule {
+  height: 1px;
+  width: 100%;
+  border: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(217, 180, 90, 0.55) 18%,
+    rgba(242, 217, 138, 0.9) 50%,
+    rgba(217, 180, 90, 0.55) 82%,
+    transparent
+  );
+}
+
+/* ── Entrance: staggered fade-up ─────────────────────────────────────── */
+@keyframes niyetFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.niyet-fade-up {
+  animation: niyetFadeUp 620ms var(--ease-out) both;
+}
+
+/* ── Gold shimmer sweep (primary CTA) ────────────────────────────────── */
+@keyframes niyetShimmer {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+.niyet-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.niyet-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 70%
+  );
+  transform: translateX(-120%) skewX(-18deg);
+  pointer-events: none;
+}
+
+.niyet-shimmer:hover::after {
+  animation: niyetShimmer 900ms var(--ease-out);
+}
+
+/* ── Loader breath ───────────────────────────────────────────────────── */
+@keyframes niyetBreath {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+/* ── Focus ring (gold) for all interactive elements ──────────────────── */
+button,
+input,
+textarea,
+a {
+  font-family: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[role='checkbox']:focus-visible,
+[role='radio']:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(217, 180, 90, 0.3);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .niyet-fade-up {
+    animation: none;
+  }
+  .niyet-shimmer:hover::after {
+    animation: none;
+  }
 }

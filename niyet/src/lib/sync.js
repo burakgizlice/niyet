@@ -192,6 +192,9 @@ async function executePendingOp(op) {
     case 'done_clear':
       result = await supabase.from('done_items').delete().eq('user_id', payload.user_id)
       break
+    case 'queue_clear':
+      result = await supabase.from('queue_items').delete().eq('user_id', payload.user_id)
+      break
     case 'show_count_upsert':
       result = await supabase.from('profiles').upsert(payload, { onConflict: 'id' })
       break
@@ -493,6 +496,16 @@ export async function syncQueueRemove(userId, itemId) {
   const payload = { id: itemId, user_id: userId }
   await mirror({ type: 'queue_delete', payload }, () =>
     supabase.from('queue_items').delete().eq('id', itemId).eq('user_id', userId),
+  )
+}
+
+/** Mirror a full queue wipe — single DELETE for the user (cf. syncDoneClear). */
+/** @param {string | null} userId */
+export async function syncQueueClear(userId) {
+  if (!userId) return
+  const payload = { user_id: userId }
+  await mirror({ type: 'queue_clear', payload }, () =>
+    supabase.from('queue_items').delete().eq('user_id', userId),
   )
 }
 
