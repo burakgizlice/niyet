@@ -22,6 +22,7 @@ import EmptyState from './EmptyState'
  *   doneItems: { id: string, text: string, completedAt: number }[],
  *   onTemizle: () => void,
  *   onAddSteps: () => void,
+ *   onShowChains: () => void,
  * }} props
  */
 export default function Queue({
@@ -34,6 +35,7 @@ export default function Queue({
   doneItems,
   onTemizle,
   onAddSteps,
+  onShowChains,
 }) {
   const current = queue[0] ?? null
   const visibleTasks = queue.slice(0, showCount)
@@ -108,13 +110,15 @@ export default function Queue({
         ) : (
           <EmptyState hasDone={doneItems.length > 0} />
         )}
-        {/* Action bar: the '+ Ekle' affordance is the primary entry point for
-            ad-hoc task entry, so it stays visible whether the queue is full or
-            empty. Block 12 will add a 'Zincirler' button alongside it. */}
+        {/* Action bar: '+ Ekle' (ad-hoc entry) and 'Zincirler' (load a chain)
+            are the two entry points, kept visible whether the queue is full or
+            empty. Ekle is the gold-bordered primary; Zincirler is the muted
+            secondary. */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'center',
+            gap: '12px',
             marginTop: '2rem',
           }}
         >
@@ -134,6 +138,23 @@ export default function Queue({
             }}
           >
             + Ekle
+          </button>
+          <button
+            type="button"
+            onClick={onShowChains}
+            style={{
+              background: 'transparent',
+              color: TOKENS.colors.textMuted,
+              fontWeight: 600,
+              fontSize: '1rem',
+              border: `1px solid ${TOKENS.colors.emeraldDim}`,
+              borderRadius: '999px',
+              padding: '10px 24px',
+              minHeight: '44px',
+              cursor: 'pointer',
+            }}
+          >
+            Zincirler
           </button>
         </div>
         <DoneLog doneItems={doneItems} onTemizle={onTemizle} />

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Queue from './components/Queue'
 import AddSteps from './components/AddSteps'
+import Chains from './components/Chains'
 import CelebrationBurst from './components/CelebrationBurst'
 import { useDone } from './hooks/useDone'
 import { useQueue } from './hooks/useQueue'
@@ -74,6 +75,10 @@ function App() {
     )
   }
 
+  if (view === 'chains') {
+    return <Chains setView={setView} appendSteps={queueApi.appendSteps} />
+  }
+
   return (
     <>
       <Queue
@@ -81,6 +86,7 @@ function App() {
         doneItems={done}
         onTemizle={handleTemizle}
         onAddSteps={() => setView('add')}
+        onShowChains={() => setView('chains')}
       />
       <CelebrationBurst active={burstActive} onDone={() => setBurstActive(false)} />
     </>
