@@ -1,0 +1,221 @@
+{
+  "block": 2,
+  "slug": "static-queue",
+  "title": "Static Queue Render",
+  "deliverable": "A Queue component that renders one task card filling the ~480px container with large calm emerald/gold-appropriate text, plus a '+N adım sırada' count beneath it, all driven by a hardcoded in-memory task array. The task data shape defined here is the canonical shape reused by every subsequent block.",
+  "depends_on": [1],
+  "scope": {
+    "in": [
+      "components/Queue.jsx — the queue view component",
+      "A hardcoded SEED_TASKS constant (collocated in Queue.jsx or a sibling seed file) defining the in-memory task array",
+      "Task data shape: { id, text } — canonical definition for the whole project",
+      "Single-step view: exactly ONE task card rendered at full container width, large calm text",
+      "'+N adım sırada' count label below the card (N = tasks.length - 1)",
+      "CSS custom properties (--color-bg, --color-surface, --color-gold, --color-emerald, etc.) consumed via inline styles",
+      "Rendering nothing / empty-placeholder when the array is empty (text: 'Sırada bir şey yok')",
+      "Responsive centred container max-width ~480px"
+    ],
+    "out": [
+      "Completion logic or tapping the card",
+      "Circular checkbox or any interactive element",
+      "Count selector / visible-count toggle (Block 3)",
+      "Showing 2, 3, or 5 cards (single card only here)",
+      "Animation on card exit or entry (Blocks 4, 6)",
+      "Web Audio tick sound (Block 5)",
+      "Celebration particle burst (Block 7)",
+      "Fire/streak counter (Block 8)",
+      "Add-steps or done-log UI (Blocks 9, 10)",
+      "Empty-state copy variants based on done count (Block 11)",
+      "Chains (Blocks 12, 13)",
+      "localStorage persistence (Block 14)",
+      "Supabase, auth, sync (Blocks 16–18)",
+      "PWA / Cloudflare deploy (Blocks 15, 19)",
+      "Any editing of the task list",
+      "The 'id' field being a UUID — a simple string/integer is fine for the seed"
+    ]
+  },
+  "files": [
+    {
+      "path": "src/components/Queue.jsx",
+      "action": "create",
+      "purpose": "Main queue view. Exports default Queue component. Contains SEED_TASKS constant. Renders the top task card and the '+N adım sırada' count label."
+    },
+    {
+      "path": "src/tokens.js",
+      "action": "create",
+      "purpose": "Exports a TOKENS object of design-token values (hex colours, font sizes, spacing, border-radius) so all components reference a single source of truth rather than magic strings. Also exports a utility style() helper (optional) that merges inline-style objects."
+    },
+    {
+      "path": "src/App.jsx",
+      "action": "modify",
+      "purpose": "Import and render <Queue /> in place of any placeholder content left by Block 1. No other logic changes."
+    },
+    {
+      "path": "src/index.css",
+      "action": "modify",
+      "purpose": "Declare CSS custom properties on :root (--color-bg, --color-surface, --color-surface-raised, --color-emerald, --color-gold, --color-text-primary, --color-text-muted, --font-task, --font-ui) and a minimal reset. These vars are what inline styles reference via getComputedStyle or are consumed directly as var() inside injected <style> tags."
+    }
+  ],
+  "packages": [],
+  "implementation_steps": [
+    {
+      "id": "2.1",
+      "description": "Define the Task data shape as a JSDoc typedef and export SEED_TASKS constant",
+      "details": "At the top of Queue.jsx define: /** @typedef {{ id: string, text: string }} Task */. Immediately below, define const SEED_TASKS = [ { id: '1', text: 'banyoya git (abdest için)' }, { id: '2', text: 'abdest al' }, { id: '3', text: 'odana su getir' }, { id: '4', text: 'su iç' }, { id: '5', text: 'seccadenin önünde dur' } ]. This shape — id (string, will become uuid in Block 14) and text (string) — is the canonical Task shape for the entire project. No other fields are introduced here. Export the typedef so later hooks can reference it."
+    },
+    {
+      "id": "2.2",
+      "description": "Create src/tokens.js with design tokens",
+      "details": "Export a plain object TOKENS = { colors: { bg: '#0a1a12', surface: '#0f2318', surfaceRaised: '#163320', emerald: '#10b981', emeraldDim: '#065f46', gold: '#d4af37', goldLight: '#f0d060', textPrimary: '#f0fdf4', textMuted: '#6b9e7a', textDim: '#3d6b4f' }, typography: { taskFontSize: '2rem', taskLineHeight: '1.3', taskFontWeight: '600', taskLetterSpacing: '-0.01em', uiFontSize: '0.9rem', fontFamily: \"'Segoe UI', system-ui, -apple-system, sans-serif\" }, spacing: { containerMaxWidth: '480px', cardPaddingV: '2.5rem', cardPaddingH: '2rem', countMarginTop: '1.25rem' }, radii: { card: '1.25rem' } }. This object is consumed by Queue.jsx and all future components via import."
+    },
+    {
+      "id": "2.3",
+      "description": "Declare CSS custom properties in src/index.css",
+      "details": "Add a :root block that maps the token values to CSS custom properties: --color-bg: #0a1a12; --color-surface: #0f2318; --color-surface-raised: #163320; --color-emerald: #10b981; --color-gold: #d4af37; --color-text-primary: #f0fdf4; --color-text-muted: #6b9e7a; etc. Also add a minimal reset: *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } and body { background: var(--color-bg); color: var(--color-text-primary); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }. These are the canonical vars; inline styles in components use TOKENS values directly (not var()) to avoid getComputedStyle round-trips, but the CSS vars exist for any global/reset CSS that needs them."
+    },
+    {
+      "id": "2.4",
+      "description": "Implement the Queue component scaffold with internal state",
+      "details": "In Queue.jsx: import React and TOKENS. The component receives no props in this block — it reads from SEED_TASKS directly. Use const [tasks] = React.useState(SEED_TASKS) so the shape is already wired for Block 14 (useState will be driven by a hook later; the setter is unused here). Derive: const current = tasks[0] ?? null; const remainingCount = tasks.length - 1;."
+    },
+    {
+      "id": "2.5",
+      "description": "Render the outer page layout — centred container",
+      "details": "Return a <div> with inline style: display:'flex', flexDirection:'column', alignItems:'center', minHeight:'100vh', backgroundColor: TOKENS.colors.bg, padding: '1.5rem 1rem'. Inside, a container <div> with maxWidth: TOKENS.spacing.containerMaxWidth, width:'100%'. All subsequent elements go inside this container."
+    },
+    {
+      "id": "2.6",
+      "description": "Render the task card for the current (first) task",
+      "details": "If current is not null, render a <div> (the card) with inline styles: backgroundColor: TOKENS.colors.surfaceRaised, borderRadius: TOKENS.radii.card, padding: `${TOKENS.spacing.cardPaddingV} ${TOKENS.spacing.cardPaddingH}`, width: '100%', minHeight: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 32px 0 rgba(16,185,129,0.10), 0 1px 4px 0 rgba(0,0,0,0.4)'. Inside, a <p> with the task text styled at TOKENS.typography.taskFontSize, fontWeight: TOKENS.typography.taskFontWeight, lineHeight: TOKENS.typography.taskLineHeight, letterSpacing: TOKENS.typography.taskLetterSpacing, color: TOKENS.colors.textPrimary, textAlign: 'center', margin: 0. A thin top border on the card (borderTop: `2px solid ${TOKENS.colors.emerald}33`) gives an emerald accent without competing with the text."
+    },
+    {
+      "id": "2.7",
+      "description": "Render the '+N adım sırada' count label",
+      "details": "Below the card <div>, render a <p> with inline styles: marginTop: TOKENS.spacing.countMarginTop, fontSize: TOKENS.typography.uiFontSize, color: TOKENS.colors.textMuted, textAlign: 'center', letterSpacing: '0.02em'. Text: remainingCount > 0 ? `+${remainingCount} adım sırada` : ''. If remainingCount is 0, render the <p> but with empty string (or null) so vertical rhythm does not collapse. Do NOT show any list of tasks."
+    },
+    {
+      "id": "2.8",
+      "description": "Handle the empty queue case",
+      "details": "If tasks.length === 0 (i.e. current === null), render a centred <p> in place of the card: color: TOKENS.colors.textMuted, fontSize: TOKENS.typography.uiFontSize, textAlign: 'center', paddingTop: '4rem'. Text: 'Sırada bir şey yok — bir adım ekle ya da bir zincir yükle.' This is the minimal empty state; the richer copy variants (based on done.length) are Block 11's concern."
+    },
+    {
+      "id": "2.9",
+      "description": "Wire Queue into App.jsx",
+      "details": "In src/App.jsx, import Queue from './components/Queue'. Replace any Vite default or Block 1 placeholder content with <Queue />. No additional routing or state needed; App.jsx remains a thin shell at this stage."
+    },
+    {
+      "id": "2.10",
+      "description": "Manual smoke-test: verify render in dev server",
+      "details": "Run npm run dev. Confirm: (a) deep emerald background fills the viewport; (b) first task text renders large and centred inside the card; (c) '+4 adım sırada' appears below; (d) temporarily set SEED_TASKS to [] and verify the empty-state copy appears. Restore SEED_TASKS to the 5-item default. No automated test infrastructure is in scope for this block."
+    }
+  ],
+  "data_structures": [
+    {
+      "name": "Task",
+      "shape": "{ id: string, text: string }",
+      "notes": "Canonical shape for the entire project. 'id' is a short string in the seed ('1', '2', …); Block 14 will generate UUID strings at creation time — the type stays 'string' throughout. No other fields are added here. Later blocks append fields only within their own data layers (e.g. done_at in Block 10 lives in a separate DoneItem shape, not on Task)."
+    },
+    {
+      "name": "SEED_TASKS",
+      "shape": "Task[] — 5 items, the Namaz Hazırlığı steps",
+      "notes": "Hardcoded constant in Queue.jsx. Chosen because it is the flagship chain from the PRD and immediately demonstrates the value proposition. Replaced by dynamic state in Block 14; the constant is kept as a fallback / illustration."
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "Queue (React component)",
+      "signature": "function Queue(): JSX.Element",
+      "purpose": "Renders the full queue view. Accepts no props in this block. In Block 14 it will accept or internally use a useQueue hook; the zero-props contract is intentional to keep the component easy to drop into App.jsx without plumbing."
+    },
+    {
+      "name": "TOKENS",
+      "signature": "export const TOKENS: { colors: {...}, typography: {...}, spacing: {...}, radii: {...} }",
+      "purpose": "Single source of truth for design values. Every component imports and destructures the relevant sub-object. Prevents magic strings and makes global reskin a one-file change."
+    }
+  ],
+  "acceptance_criteria": [
+    "Running npm run dev shows a deep emerald background filling the viewport.",
+    "A single task card is visible, centred, max-width ~480px, with the first SEED_TASKS item's text rendered in large (≥2rem) calm typography.",
+    "The card has a visible emerald-tinted surface distinct from the page background.",
+    "Below the card, the text '+4 adım sırada' is visible in a muted colour (not competing with the card).",
+    "No checkboxes, buttons, toggles, or interactive elements are present.",
+    "No list of the remaining tasks is rendered — only the count.",
+    "Setting SEED_TASKS to a single item renders the card and '+0 adım sırada' shows nothing (empty string, not '0').",
+    "Setting SEED_TASKS to [] renders the empty-state copy 'Sırada bir şey yok — bir adım ekle ya da bir zincir yükle.' and no card.",
+    "No npm packages were added beyond what Block 1 installed.",
+    "The Task typedef { id: string, text: string } is documented in Queue.jsx and matches the PRD's queue_items schema columns (id, text)."
+  ],
+  "verification": [
+    "npm run dev → open browser → visually confirm emerald dark background and card layout.",
+    "Inspect element: card background differs from page background; task text is ≥32px rendered size.",
+    "Count label: set SEED_TASKS to 3 items → confirm '+2 adım sırada'.",
+    "Count label: set SEED_TASKS to 1 item → confirm the count area is blank (no '+0').",
+    "Empty state: set SEED_TASKS to [] → confirm empty-state Turkish copy is shown, no card, no count.",
+    "npm run build → confirm build exits 0 with no TypeScript/lint errors.",
+    "Confirm no package.json changes vs Block 1 output (no new dependencies)."
+  ],
+  "questionable_decisions": [
+    {
+      "id": "Q1",
+      "decision": "TOKENS object in src/tokens.js uses hardcoded hex strings, not CSS custom properties, in inline styles",
+      "assumption": "Inline styles are the project's chosen styling mechanism (per PRD §4.1); CSS custom properties accessed via JS require getComputedStyle and are brittle. Keeping token values as JS constants is simpler and consistent.",
+      "alternatives": [
+        "Use var(--color-*) strings in inline styles and rely on CSS cascade",
+        "Use a CSS-in-JS library (emotion, styled-components) — explicitly out of stack"
+      ],
+      "recommendation": "Keep JS constants. CSS vars in index.css are still declared for global/reset rules (body background, etc.) but components read from TOKENS directly.",
+      "impact": "low"
+    },
+    {
+      "id": "Q2",
+      "decision": "SEED_TASKS uses Namaz Hazırlığı steps (5 items) instead of a generic lorem set",
+      "assumption": "Using real content from the PRD's flagship chain is more useful for design review and communicates the product intent immediately. A generic 'Task 1 / Task 2' seed adds no signal.",
+      "alternatives": [
+        "Generic numbered tasks",
+        "Random mixed chain tasks"
+      ],
+      "recommendation": "Use real Namaz Hazırlığı steps. They are the right length (5 items), show varied Turkish text, and stress-test the card typography with real copy.",
+      "impact": "low"
+    },
+    {
+      "id": "Q3",
+      "decision": "Queue receives no props; SEED_TASKS is read from module scope inside useState",
+      "assumption": "In Block 14, Queue will import a useQueue() hook that returns tasks. Writing useState(SEED_TASKS) now means Block 14 only needs to swap one line (useState → useQueue()) without changing the component's interface or App.jsx.",
+      "alternatives": [
+        "Pass tasks as a prop from App.jsx — makes App.jsx stateful earlier than needed",
+        "Export a setTasks from Queue and drive it externally — over-engineered for this block"
+      ],
+      "recommendation": "Internal useState with SEED_TASKS as initial value. The migration path to useQueue is a single-line change.",
+      "impact": "med"
+    },
+    {
+      "id": "Q4",
+      "decision": "'+0 adım sırada' is suppressed (empty string) when remainingCount is 0",
+      "assumption": "'+0 adım sırada' is grammatically and semantically nonsensical in Turkish — it implies something follows but nothing does. Showing nothing is cleaner than showing zero.",
+      "alternatives": [
+        "Show 'Son adım' when remainingCount === 0",
+        "Show nothing at all (null) and collapse the space"
+      ],
+      "recommendation": "Render empty string (not null) to preserve vertical spacing so the layout does not jump when going from 1 remaining → 0. Block 3 (visible-count toggle) can add 'Son adım' copy if desired.",
+      "impact": "low"
+    },
+    {
+      "id": "Q5",
+      "decision": "Task shape defined as { id: string, text: string } with no position field",
+      "assumption": "The PRD's queue_items table has a 'position' column, but position is an ordering concern for the persistence/sync layer (Block 14+), not for the in-memory array which is already ordered by array index. Adding 'position' to the Task shape now would be premature and unused.",
+      "alternatives": [
+        "Add position: number to Task now to match the DB schema exactly",
+        "Use a separate QueueItem type that extends Task with position"
+      ],
+      "recommendation": "Keep Task as { id, text }. Block 14 can add a derived 'position' when writing to localStorage/Supabase — it need not live on the in-memory object.",
+      "impact": "med"
+    }
+  ],
+  "open_questions": [
+    "Should the card have a minimum height so short one-word tasks (e.g. 'kalk') don't leave the card visually thin? Suggested: minHeight 160px, but needs design review against real device.",
+    "Font choice: the PRD defers detailed typography to the build phase. Should a specific web-safe or Google Fonts pairing (e.g. a calligraphic display font for task text) be locked in at this block, or is system-ui acceptable as a placeholder?",
+    "Should the '+N adım sırada' count be tappable (Block 3 toggle preview) or a plain non-interactive label? Block 3 will add the toggle, but the layout reserved for it matters for spacing decisions now.",
+    "The PRD mentions an Arabic calligraphy watermark of 'نية' as a visual motif. Should a faint SVG or CSS background watermark be included in the card or page background at this block, or deferred to a design polish pass?",
+    "Is Segoe UI / system-ui the correct font stack for Turkish text with correct character support (ş, ğ, ı, ü, ö, ç)? All listed system fonts support these glyphs, but this should be confirmed on the target devices (iOS Safari, Android Chrome)."
+  ]
+}

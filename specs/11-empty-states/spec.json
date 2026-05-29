@@ -1,0 +1,143 @@
+{
+  "block": 11,
+  "slug": "empty-states",
+  "title": "Empty States",
+  "deliverable": "The main queue view renders one of two distinct Turkish empty-state messages in the single-step view area depending on whether `done.length > 0`, with no other changes to surrounding UI.",
+  "depends_on": [4, 9],
+  "scope": {
+    "in": [
+      "Conditional empty-state rendering inside the existing Queue view area",
+      "Message A — nothing done: \"Sırada bir şey yok — bir adım ekle ya da bir zincir yükle.\"",
+      "Message B — after completions: \"Sıra temiz. Başardın. Başka bir zincir yükle ya da dinlen — bunu hak ettin.\"",
+      "Calm, minimal inline styling consistent with emerald dark + gold design language",
+      "Reading `queue` (array of pending tasks) and `done` (array of completed tasks) from existing state/hook",
+      "Empty-state occupies the same DOM region as the single-step task card area"
+    ],
+    "out": [
+      "Chains feature (Block 12) — wording references 'zincir' intentionally as forward copy",
+      "Particle burst on queue-empty (Block 7)",
+      "Persistence changes (Block 14)",
+      "Any new animation beyond what already exists for task-card exit (Block 4)",
+      "Add Steps screen (Block 9) — only the link/copy references it, no navigation wired here",
+      "Done log / Temizle (Block 10) — consumed as read-only input (`done.length`)"
+    ]
+  },
+  "files": [
+    {
+      "path": "src/components/Queue.jsx",
+      "action": "modify",
+      "purpose": "Add conditional branch: when `queue.length === 0`, render EmptyState component instead of task cards; pass `hasDone` boolean prop derived from `done.length > 0`"
+    },
+    {
+      "path": "src/components/EmptyState.jsx",
+      "action": "create",
+      "purpose": "Pure presentational component; receives `hasDone` boolean and renders the correct Turkish copy with calm inline styles"
+    }
+  ],
+  "packages": [],
+  "implementation_steps": [
+    {
+      "id": "11.1",
+      "description": "Create `src/components/EmptyState.jsx` presentational component",
+      "details": "Accept a single boolean prop `hasDone`. When `false` render: \"Sırada bir şey yok — bir adım ekle ya da bir zincir yükle.\" When `true` render: \"Sıra temiz. Başardın. Başka bir zincir yükle ya da dinlen — bunu hak ettin.\" Component returns a single `<div>` with inline styles: `textAlign: 'center'`, `color: 'var(--color-text-muted)'` (or equivalent subdued emerald/gold token), `fontSize: '1.1rem'`, `lineHeight: 1.6`, `padding: '2rem 1rem'`, `maxWidth: '340px'`, `margin: '0 auto'`. No icons, no buttons, no animation — pure text, calm presence."
+    },
+    {
+      "id": "11.2",
+      "description": "Wire `EmptyState` into `Queue.jsx` conditional render",
+      "details": "Inside `Queue.jsx`, locate the region that renders the visible task card(s) (the primary single-step area). Wrap the existing card render in a conditional: `if (queue.length === 0) return <EmptyState hasDone={done.length > 0} />`. The `done` array must already be accessible in scope via `useQueue` (added in Block 4/10). Do NOT change surrounding layout, header, visible-count toggle, action bar, or done log — only the card region changes."
+    },
+    {
+      "id": "11.3",
+      "description": "Verify CSS variable availability",
+      "details": "Check that `--color-text-muted` (or a semantically equivalent muted/subdued CSS variable) is defined in the global styles established in Block 1 (project skeleton). If it does not exist, add `--color-text-muted: rgba(167, 243, 208, 0.55);` (semi-transparent emerald) to the `:root` block in the global CSS or inline-style token file. Do not introduce a new CSS file — patch the existing one."
+    },
+    {
+      "id": "11.4",
+      "description": "Manual smoke-test across state transitions",
+      "details": "Confirm three state transitions render correctly: (a) app loads with empty queue and empty done list → Message A; (b) complete one or more tasks then complete or remove all remaining queue items → Message B; (c) after reaching Message B, add a new step via Add Steps → message disappears and task card renders normally."
+    }
+  ],
+  "data_structures": [
+    {
+      "name": "EmptyStateProps",
+      "shape": "{ hasDone: boolean }",
+      "notes": "Single boolean derived from `done.length > 0` at the call-site in Queue.jsx. No raw arrays passed into EmptyState — keeps the component maximally simple and testable."
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "EmptyState",
+      "signature": "function EmptyState({ hasDone }: { hasDone: boolean }): JSX.Element",
+      "purpose": "Renders the appropriate empty-queue Turkish message. Stateless, no side-effects, no hooks."
+    }
+  ],
+  "acceptance_criteria": [
+    "When `queue.length === 0` AND `done.length === 0`, the text \"Sırada bir şey yok — bir adım ekle ya da bir zincir yükle.\" is visible in the task-card area.",
+    "When `queue.length === 0` AND `done.length > 0`, the text \"Sıra temiz. Başardın. Başka bir zincir yükle ya da dinlen — bunu hak ettin.\" is visible in the task-card area.",
+    "When `queue.length > 0`, no empty-state message is rendered.",
+    "The empty-state text is calm and subdued — muted colour, not gold/bright emerald, no bold weight.",
+    "No buttons, icons, or interactive elements are added inside EmptyState.",
+    "The surrounding layout (header, fire/streak, visible-count toggle, action bar, done log) is unaffected.",
+    "The word 'zincir' appears in both messages exactly as specified — no substitution even though Block 12 is not yet built.",
+    "After adding steps from the Add Steps screen, the queue renders task cards and no empty-state message."
+  ],
+  "verification": [
+    "Open app with localStorage cleared → confirm Message A is shown.",
+    "Add one task, complete it (Block 4 completion flow) → queue empties with `done.length === 1` → confirm Message B is shown.",
+    "Add two tasks, complete one, cancel/remove the other → `done.length > 0`, `queue.length === 0` → confirm Message B.",
+    "From Message B state, add a new task → confirm task card renders, no empty-state visible.",
+    "Inspect rendered DOM to confirm `EmptyState` component is mounted only when `queue.length === 0`.",
+    "Visually confirm the text colour is subdued (not white, not gold) against the dark emerald background.",
+    "Confirm no JavaScript console errors during any state transition."
+  ],
+  "questionable_decisions": [
+    {
+      "id": "Q1",
+      "decision": "Reference 'zincir' in copy even though Block 12 (chains) is not yet built",
+      "assumption": "Users seeing the empty state before Block 12 is deployed will encounter the word 'zincir' with no corresponding UI affordance, which could be confusing during development/testing but is intentional per PRD copy spec.",
+      "alternatives": [
+        "Use placeholder copy without 'zincir' until Block 12 ships, then swap",
+        "Conditionally show the 'zincir yükle' phrase only if chains feature is detected/available"
+      ],
+      "recommendation": "Keep the specified copy verbatim as the PRD mandates it. The app is a personal tool and Block 12 will follow immediately. If a staged deploy to real users occurs before Block 12, swap the copy temporarily via a feature-flag constant.",
+      "impact": "low"
+    },
+    {
+      "id": "Q2",
+      "decision": "EmptyState is a separate file rather than inlined JSX in Queue.jsx",
+      "assumption": "Extracting into its own file adds one indirection for what is 10 lines of JSX. However it isolates the copy strings and makes them trivially testable and findable.",
+      "alternatives": [
+        "Inline the conditional JSX directly in Queue.jsx — fewer files, same outcome"
+      ],
+      "recommendation": "Keep the separate file. Copy strings for ADHD-sensitive UX should be easy to locate and audit independently of queue logic. The minimal-information ethos applies to the codebase too.",
+      "impact": "low"
+    },
+    {
+      "id": "Q3",
+      "decision": "Empty-state styled with muted colour only — no secondary CTA buttons",
+      "assumption": "The minimum-visible-information principle means no 'Ekle' or 'Zincir yükle' buttons inside the empty state, even though the copy references these actions. Users already have the action bar below.",
+      "alternatives": [
+        "Add a subtle ghost button 'Adım ekle' that navigates to Add Steps view to reduce friction"
+      ],
+      "recommendation": "No buttons for v1. The action bar (Ekle / Zincirler) is already present. Adding a second affordance inside the empty state would fragment attention in a deep-low state. Revisit in Phase 2 if user testing shows the action bar is being missed.",
+      "impact": "med"
+    },
+    {
+      "id": "Q4",
+      "decision": "`done.length` read directly from the same hook/state as the queue rather than introducing a separate selector",
+      "assumption": "Block 4 (completion flow) and Block 10 (done log) already expose `done` from `useQueue`. If those blocks store done items differently (e.g. a separate hook), this block must align with that interface.",
+      "alternatives": [
+        "Accept a separate `doneCount: number` prop from parent to decouple EmptyState from the hook shape",
+        "Read from localStorage directly inside Queue.jsx for the hasDone check"
+      ],
+      "recommendation": "Derive `hasDone` from `done.length > 0` at the Queue.jsx call-site, passing only the boolean into EmptyState. This decouples the presentational component from data concerns while keeping the derivation close to the queue logic.",
+      "impact": "low"
+    }
+  ],
+  "open_questions": [
+    "Does Block 4 expose `done` as an array directly from `useQueue`, or is it a separate `useDone` hook? The implementation must align with whatever interface Block 10 established.",
+    "Is there a global CSS variable file from Block 1 that defines `--color-text-muted`, or must it be added? If the skeleton uses a different naming convention (e.g. `--text-secondary`), use that instead.",
+    "Should the empty-state message animate in (e.g. a gentle fade) after the last task card exits, or appear immediately? PRD §5.2 says 'motion is reward, not decoration' — a plain appear with no animation is safer here since there is no user action triggering the empty state itself (the action was the final completion, which already has its own animation in Block 4).",
+    "If `done` is reset by 'Temizle' (Block 10) while the queue is also empty, the view should revert from Message B back to Message A — confirm this is automatic given the reactive state, requiring no special logic here."
+  ]
+}

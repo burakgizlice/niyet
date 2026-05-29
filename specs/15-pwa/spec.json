@@ -1,0 +1,309 @@
+{
+  "block": 15,
+  "slug": "pwa",
+  "title": "PWA — Installable + Offline Launch",
+  "deliverable": "The app is installable via 'Ana ekrana ekle' on iOS, Android, and desktop. It launches fully offline from the home screen. The app shell is served from cache-first service worker cache. Network-first hook points for future Supabase calls are stubbed with localStorage fallback comments.",
+  "depends_on": [14],
+  "scope": {
+    "in": [
+      "Web App Manifest: name 'Niyet', short_name 'Niyet', description in Turkish, emerald theme_color (#065f46) and background_color (#022c22), display: standalone, start_url: '/', scope: '/'",
+      "Maskable icon support: icons at 192x192 and 512x512 with purpose 'any maskable', plus 180x180 Apple touch icon",
+      "Additional icon sizes: 48x48, 72x72, 96x96, 128x128, 144x144, 256x256, 384x384 for broad device coverage",
+      "Service worker registration in main.jsx using navigator.serviceWorker.register",
+      "Cache-first strategy for app shell: HTML, JS bundles, CSS, fonts, and all static assets cached on install",
+      "Service worker lifecycle: install (cache shell), activate (delete old caches), fetch (cache-first with network fallback for shell assets)",
+      "Network-first strategy stub for Supabase API calls (url.origin matches Supabase URL) with localStorage fallback comment — hook point for Block 16",
+      "vite-plugin-pwa integration for manifest injection and SW generation (recommended over hand-rolled SW — see Q1)",
+      "iOS-specific meta tags in index.html: apple-mobile-web-app-capable, apple-mobile-web-app-status-bar-style (black-translucent), apple-mobile-web-app-title, apple-touch-icon",
+      "Android/Chrome: manifest link tag, theme-color meta tag",
+      "beforeinstallprompt capture and deferred prompt storage for custom install affordance (future use)",
+      "Offline fallback: if network fetch fails for non-shell route, serve cached index.html (SPA fallback)",
+      "Cache versioning: CACHE_NAME constant with version string for bust-on-deploy",
+      "Icon asset generation: source SVG/PNG at 512x512 minimum, generate all required sizes",
+      "Vite build config updates to include PWA plugin and register SW in production only",
+      "Verification that Lighthouse PWA audit passes installability and offline checks"
+    ],
+    "out": [
+      "Supabase integration (Block 16)",
+      "Auth and sync (Blocks 17–18)",
+      "Push notifications (Phase 2, PRD §9)",
+      "Background sync for pending queue mutations (Block 18)",
+      "Periodic background sync",
+      "Any runtime data caching beyond the app shell — localStorage handles app data per Block 14"
+    ]
+  },
+  "files": [
+    {
+      "path": "public/manifest.json",
+      "action": "create",
+      "purpose": "Web App Manifest with all required fields: name, short_name, description (Turkish), start_url, display, theme_color, background_color, icons array covering all sizes with maskable purpose"
+    },
+    {
+      "path": "public/icons/icon-48.png",
+      "action": "create",
+      "purpose": "App icon 48x48 — general browser usage"
+    },
+    {
+      "path": "public/icons/icon-72.png",
+      "action": "create",
+      "purpose": "App icon 72x72 — Android legacy"
+    },
+    {
+      "path": "public/icons/icon-96.png",
+      "action": "create",
+      "purpose": "App icon 96x96 — Android legacy"
+    },
+    {
+      "path": "public/icons/icon-128.png",
+      "action": "create",
+      "purpose": "App icon 128x128 — Chrome Web Store / desktop"
+    },
+    {
+      "path": "public/icons/icon-144.png",
+      "action": "create",
+      "purpose": "App icon 144x144 — Windows tile / Android"
+    },
+    {
+      "path": "public/icons/icon-180.png",
+      "action": "create",
+      "purpose": "Apple touch icon 180x180 — iOS home screen"
+    },
+    {
+      "path": "public/icons/icon-192.png",
+      "action": "create",
+      "purpose": "App icon 192x192 with purpose 'any maskable' — Android adaptive icon minimum required size"
+    },
+    {
+      "path": "public/icons/icon-256.png",
+      "action": "create",
+      "purpose": "App icon 256x256 — desktop shortcuts"
+    },
+    {
+      "path": "public/icons/icon-384.png",
+      "action": "create",
+      "purpose": "App icon 384x384 — Android splash screen"
+    },
+    {
+      "path": "public/icons/icon-512.png",
+      "action": "create",
+      "purpose": "App icon 512x512 with purpose 'any maskable' — Lighthouse requirement, splash screen, Play Store"
+    },
+    {
+      "path": "public/icons/icon-source.svg",
+      "action": "create",
+      "purpose": "Master SVG source for icon generation: emerald background (#022c22), gold Arabic calligraphy glyph or emerald flame motif centered, safe zone respected for maskable (central 80% of canvas)"
+    },
+    {
+      "path": "index.html",
+      "action": "modify",
+      "purpose": "Add manifest link, theme-color meta, apple-mobile-web-app-* meta tags, apple-touch-icon link, and MS tile meta for full cross-platform install signal"
+    },
+    {
+      "path": "vite.config.js",
+      "action": "modify",
+      "purpose": "Add vite-plugin-pwa with VitePWA() plugin config: manifest inline (or pointing to manifest.json), workbox strategies, SW filename, registerType: 'autoUpdate', injectRegister: 'auto'"
+    },
+    {
+      "path": "src/main.jsx",
+      "action": "modify",
+      "purpose": "If using manual SW (alternative path): add navigator.serviceWorker.register('/sw.js') call gated on production + serviceWorker in navigator. With vite-plugin-pwa this may be auto-injected, but explicit registration hook stays for clarity."
+    },
+    {
+      "path": "src/lib/pwa.js",
+      "action": "create",
+      "purpose": "PWA utility module: captures beforeinstallprompt event, exposes installPrompt ref, isInstallable() check, triggerInstall() function, and isStandalone() helper. Also exports network-first fetch wrapper with localStorage fallback stub for Block 16."
+    }
+  ],
+  "packages": [
+    "vite-plugin-pwa",
+    "workbox-window (peer dep of vite-plugin-pwa — auto-installed)",
+    "sharp (optional devDependency for icon generation script — not bundled into app)"
+  ],
+  "implementation_steps": [
+    {
+      "id": "15.1",
+      "description": "Install vite-plugin-pwa",
+      "details": "Run `npm install -D vite-plugin-pwa`. This pulls in workbox-build and workbox-window as peer dependencies. Pin to a recent stable version (>=0.20). Do not install workbox packages separately — vite-plugin-pwa manages them."
+    },
+    {
+      "id": "15.2",
+      "description": "Create icon source and generate all icon sizes",
+      "details": "Create public/icons/icon-source.svg: 512x512 canvas, background fill #022c22 (deep emerald), centered design element (gold Arabic 'niyet' calligraphy glyph or stylised flame) within the central 80% safe zone so maskable cropping is safe on all platforms. Use an icon generation script (scripts/gen-icons.mjs using sharp) to emit all PNG sizes: 48, 72, 96, 128, 144, 180, 192, 256, 384, 512. Add `npm run gen-icons` to package.json scripts. Run once and commit all PNGs. The script is a dev-only tool — not part of the app bundle."
+    },
+    {
+      "id": "15.3",
+      "description": "Create public/manifest.json",
+      "details": "{\n  \"name\": \"Niyet\",\n  \"short_name\": \"Niyet\",\n  \"description\": \"Bir sonraki adımını göster — DEHB için tek adım görev kuyruğu\",\n  \"start_url\": \"/\",\n  \"scope\": \"/\",\n  \"display\": \"standalone\",\n  \"orientation\": \"portrait-primary\",\n  \"theme_color\": \"#065f46\",\n  \"background_color\": \"#022c22\",\n  \"lang\": \"tr\",\n  \"dir\": \"ltr\",\n  \"categories\": [\"productivity\", \"utilities\"],\n  \"icons\": [\n    { \"src\": \"/icons/icon-48.png\", \"sizes\": \"48x48\", \"type\": \"image/png\" },\n    { \"src\": \"/icons/icon-72.png\", \"sizes\": \"72x72\", \"type\": \"image/png\" },\n    { \"src\": \"/icons/icon-96.png\", \"sizes\": \"96x96\", \"type\": \"image/png\" },\n    { \"src\": \"/icons/icon-128.png\", \"sizes\": \"128x128\", \"type\": \"image/png\" },\n    { \"src\": \"/icons/icon-144.png\", \"sizes\": \"144x144\", \"type\": \"image/png\" },\n    { \"src\": \"/icons/icon-192.png\", \"sizes\": \"192x192\", \"type\": \"image/png\", \"purpose\": \"any maskable\" },\n    { \"src\": \"/icons/icon-256.png\", \"sizes\": \"256x256\", \"type\": \"image/png\" },\n    { \"src\": \"/icons/icon-384.png\", \"sizes\": \"384x384\", \"type\": \"image/png\" },\n    { \"src\": \"/icons/icon-512.png\", \"sizes\": \"512x512\", \"type\": \"image/png\", \"purpose\": \"any maskable\" }\n  ]\n}"
+    },
+    {
+      "id": "15.4",
+      "description": "Update index.html with all cross-platform install meta tags",
+      "details": "Inside <head>: (1) <link rel='manifest' href='/manifest.json'> (2) <meta name='theme-color' content='#065f46'> (3) <meta name='apple-mobile-web-app-capable' content='yes'> (4) <meta name='apple-mobile-web-app-status-bar-style' content='black-translucent'> (5) <meta name='apple-mobile-web-app-title' content='Niyet'> (6) <link rel='apple-touch-icon' href='/icons/icon-180.png'> (7) <meta name='msapplication-TileColor' content='#022c22'> (8) <meta name='msapplication-TileImage' content='/icons/icon-144.png'>. The apple-mobile-web-app-status-bar-style 'black-translucent' allows the status bar to overlay the app, giving a true full-screen feel that matches the emerald dark theme."
+    },
+    {
+      "id": "15.5",
+      "description": "Configure vite-plugin-pwa in vite.config.js",
+      "details": "Import { VitePWA } from 'vite-plugin-pwa'. Add to plugins array: VitePWA({ registerType: 'autoUpdate', injectRegister: 'auto', workbox: { globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'], runtimeCaching: [ { urlPattern: ({ url }) => url.origin === self.location.origin, handler: 'CacheFirst', options: { cacheName: 'niyet-shell-v1', expiration: { maxEntries: 50, maxAgeSeconds: 30 * 24 * 60 * 60 } } }, { urlPattern: ({ url }) => url.hostname.includes('supabase.co'), handler: 'NetworkFirst', options: { cacheName: 'niyet-supabase-v1', networkTimeoutSeconds: 5, expiration: { maxEntries: 20, maxAgeSeconds: 60 } } } ] }, manifest: false /* use public/manifest.json */ }). Setting manifest: false tells the plugin not to generate its own manifest — we own that file. The Supabase runtimeCaching entry is a hook point: it runs even before Block 16 ships and won't match any requests yet; the localStorage fallback is in the app layer (Block 14), not the SW."
+    },
+    {
+      "id": "15.6",
+      "description": "Create src/lib/pwa.js — PWA utility module",
+      "details": "Export four items: (1) installPromptRef: { current: null } — set via beforeinstallprompt listener attached in initPWA(). (2) initPWA(): call once in main.jsx; attaches beforeinstallprompt event listener storing the event in installPromptRef.current; also listens to appinstalled to clear the prompt. (3) isInstallable(): returns Boolean(installPromptRef.current). (4) triggerInstall(): calls installPromptRef.current.prompt(), awaits userChoice, clears the ref, returns the outcome string ('accepted' | 'dismissed'). (5) isStandalone(): returns window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true. (6) networkFirstWithLocalStorageFallback(key, fetchFn): async function — tries fetchFn(), on success stores result in localStorage under key, returns result; on failure returns JSON.parse(localStorage.getItem(key)) || null. This stub is the hook point for Block 16 Supabase calls."
+    },
+    {
+      "id": "15.7",
+      "description": "Call initPWA() in src/main.jsx",
+      "details": "Import initPWA from './lib/pwa.js'. Call initPWA() before ReactDOM.createRoot. This sets up the beforeinstallprompt listener as early as possible — the browser fires this event shortly after page load and it must be caught synchronously in the current event loop tick or it is missed. No SW registration code needed in main.jsx when using vite-plugin-pwa with injectRegister: 'auto' — the plugin injects a registration script automatically."
+    },
+    {
+      "id": "15.8",
+      "description": "Verify SW and manifest in dev and production",
+      "details": "In dev: vite-plugin-pwa does NOT activate the SW by default (devOptions.enabled defaults to false) — this is intentional to avoid cache confusion during development. To test: run `npm run build && npx serve dist` or deploy to Cloudflare Pages preview. Check: (a) Chrome DevTools → Application → Manifest shows correct fields. (b) Application → Service Workers shows the SW registered and active. (c) Application → Cache Storage shows niyet-shell-v1 populated. (d) Network tab → throttle to offline → reload → app loads from cache. (e) Install prompt appears on Android Chrome / desktop Chrome."
+    },
+    {
+      "id": "15.9",
+      "description": "Validate with Lighthouse PWA audit",
+      "details": "Run Lighthouse (Chrome DevTools or CLI: `npx lighthouse https://niyet.burakgizlice.com --only-categories=pwa`) against the Cloudflare Pages deploy. Target: all PWA checks green. Key checks: 'Installable' (manifest valid, SW registered, icons present), 'PWA Optimized' (meta viewport, HTTPS, themed splash). Fix any failures before marking block complete. Common pitfalls: missing 512px maskable icon, start_url not cached by SW, manifest not served with correct MIME type."
+    },
+    {
+      "id": "15.10",
+      "description": "Manual iOS install test",
+      "details": "iOS Safari does not support beforeinstallprompt — install is always manual via Share → 'Ana Ekrana Ekle'. Test on iOS Safari: (1) Navigate to the deployed URL. (2) Tap Share → 'Ana Ekrana Ekle'. (3) Confirm icon appears with correct name 'Niyet' and emerald background. (4) Launch from home screen — confirm display: standalone (no browser chrome). (5) Put device in Airplane mode → launch from home screen → confirm app loads. The apple-mobile-web-app-* meta tags and apple-touch-icon added in step 15.4 drive this flow."
+    }
+  ],
+  "data_structures": [
+    {
+      "name": "WebAppManifest",
+      "shape": "{ name: 'Niyet', short_name: 'Niyet', description: string (Turkish), start_url: '/', scope: '/', display: 'standalone', orientation: 'portrait-primary', theme_color: '#065f46', background_color: '#022c22', lang: 'tr', dir: 'ltr', categories: string[], icons: ManifestIcon[] }",
+      "notes": "theme_color #065f46 = Tailwind emerald-800, background_color #022c22 = near-black emerald matching PRD dark base. Both values appear in the browser tab chrome on Android and in the splash screen. The background_color is shown while the SW is hydrating — it must match the app background to avoid flash."
+    },
+    {
+      "name": "ManifestIcon",
+      "shape": "{ src: string, sizes: string, type: 'image/png', purpose?: 'any maskable' | 'any' | 'maskable' }",
+      "notes": "The 'any maskable' combined purpose value is the modern approach per W3C spec — a single icon serves both maskable and non-maskable contexts. Required sizes for full coverage: 192 and 512 with maskable purpose. All others use default purpose (omit field). Apple ignores the manifest icons array entirely — apple-touch-icon link tag in index.html is the iOS signal."
+    },
+    {
+      "name": "WorkboxRuntimeCacheEntry",
+      "shape": "{ urlPattern: RegExp | Function, handler: 'CacheFirst' | 'NetworkFirst' | 'StaleWhileRevalidate', options: { cacheName: string, networkTimeoutSeconds?: number, expiration?: { maxEntries: number, maxAgeSeconds: number } } }",
+      "notes": "Two entries: (1) same-origin assets → CacheFirst with niyet-shell-v1; (2) supabase.co requests → NetworkFirst with niyet-supabase-v1, 5s timeout. The Supabase entry is a Block 16 hook — no Supabase calls exist yet in Block 15. The NetworkFirst handler with a timeout ensures the app does not hang waiting for network in offline mode."
+    },
+    {
+      "name": "PWAInstallState",
+      "shape": "{ installPromptRef: { current: BeforeInstallPromptEvent | null }, isInstallable: boolean, isStandalone: boolean }",
+      "notes": "Held in src/lib/pwa.js module scope (not React state). The BeforeInstallPromptEvent is a Chrome/Edge/Android-only API — not available on iOS Safari or Firefox. isStandalone() uses matchMedia to detect if already running as installed app, suppressing the install affordance when already installed."
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "initPWA",
+      "signature": "() => void",
+      "purpose": "Call once at app boot (before React mount). Registers beforeinstallprompt and appinstalled event listeners. Side-effect only — no return value."
+    },
+    {
+      "name": "isInstallable",
+      "signature": "() => boolean",
+      "purpose": "Returns true if the browser has fired beforeinstallprompt and the prompt has not yet been used. Use to conditionally show an 'Ana ekrana ekle' affordance in the UI (future Block or UI polish)."
+    },
+    {
+      "name": "triggerInstall",
+      "signature": "() => Promise<'accepted' | 'dismissed' | 'unavailable'>",
+      "purpose": "Shows the native install prompt. Returns the user's choice. Returns 'unavailable' if installPromptRef.current is null (iOS, already installed, or prompt already used)."
+    },
+    {
+      "name": "isStandalone",
+      "signature": "() => boolean",
+      "purpose": "Returns true when app is running in standalone/installed mode. Use to hide install CTAs and to detect launch context for analytics (future)."
+    },
+    {
+      "name": "networkFirstWithLocalStorageFallback",
+      "signature": "<T>(key: string, fetchFn: () => Promise<T>) => Promise<T | null>",
+      "purpose": "Hook point for Block 16. Attempts network fetch via fetchFn, caches result in localStorage under key on success. On failure (offline/error), returns cached value from localStorage. Enables graceful degradation for future Supabase reads."
+    }
+  ],
+  "acceptance_criteria": [
+    "On Android Chrome, visiting the deployed URL triggers the browser's 'Add to Home Screen' bottom sheet within a few seconds (or 'Install app' in the address bar) — the beforeinstallprompt event fires",
+    "On iOS Safari, tapping Share → 'Ana Ekrana Ekle' shows app name 'Niyet' and the emerald icon; the installed app launches in standalone mode (no browser chrome)",
+    "On desktop Chrome/Edge, the install icon appears in the address bar; clicking it installs the app as a standalone window",
+    "After installation on any platform, launching from home screen/dock opens the app in standalone mode (no address bar, no tab bar)",
+    "With the device in airplane mode (or DevTools offline), launching the installed app from the home screen loads the full UI without a network request",
+    "With the device in airplane mode, all app functionality from Block 14 (localStorage-backed queue, chains, done log) works identically to online mode",
+    "Chrome DevTools → Application → Manifest shows: name 'Niyet', theme_color '#065f46', background_color '#022c22', display 'standalone', all icon sizes listed including 192 and 512 maskable",
+    "Chrome DevTools → Application → Service Workers shows the SW as 'activated and running'",
+    "Chrome DevTools → Application → Cache Storage shows niyet-shell-v1 containing index.html, all JS chunks, and CSS",
+    "Lighthouse PWA audit on the production URL scores all installability and PWA Optimized checks as passed (green)",
+    "No white flash during offline launch — the background_color in manifest matches app background",
+    "The app shell loads offline even after a hard refresh (Ctrl+Shift+R) — SW intercepts the navigation request"
+  ],
+  "verification": [
+    "Deploy to Cloudflare Pages (HTTPS required for SW registration) and open Chrome DevTools → Application tab — confirm Manifest, Service Workers, and Cache Storage are all populated correctly",
+    "In Chrome DevTools → Network tab, set throttling to 'Offline', reload — confirm app loads from service worker cache (status 200 from ServiceWorker in the Size column)",
+    "On a physical Android device, open Chrome, navigate to the deploy URL, wait for the 'Add to Home Screen' prompt, install, disconnect from wifi, launch from home screen — confirm full app functionality",
+    "On a physical iOS device (or iOS Simulator), open Safari, navigate to URL, use Share → Ana Ekrana Ekle, install, enable Airplane mode, launch from home screen — confirm standalone mode and full offline functionality",
+    "Run `npx lighthouse <production-url> --only-categories=pwa --output=json` — parse output and confirm all pwa audits show score 1 (pass)",
+    "Run `npx workbox injectManifest` or inspect the built dist/sw.js to confirm the precache manifest lists all shell assets",
+    "Check that sw.js is NOT served with Cache-Control: immutable (it must be revalidated on every navigation so updates are picked up); Cloudflare Pages default headers are acceptable",
+    "Confirm icon safe zone: open icon-512.png in an image editor, overlay a circle inscribed in the central 80% of the canvas — verify the design element is fully within this zone (maskable safe zone requirement)"
+  ],
+  "questionable_decisions": [
+    {
+      "id": "Q1",
+      "decision": "Use vite-plugin-pwa (Workbox-backed) rather than a hand-rolled service worker",
+      "assumption": "The Workbox precache manifest generation, cache versioning, and update lifecycle handling provided by vite-plugin-pwa would require ~200 lines of careful hand-rolled SW code to replicate safely. The plugin integrates directly with Vite's build graph so the precache list is always accurate.",
+      "alternatives": [
+        "Hand-rolled SW: full control, no dependency, easier to understand, but fragile precache list (must manually keep in sync with Vite output chunks), and cache versioning bugs are common",
+        "Workbox CLI / workbox-build directly without the Vite plugin: more control than vite-plugin-pwa but requires a separate build step and manual Vite integration"
+      ],
+      "recommendation": "Use vite-plugin-pwa. For a single-developer project where reliability of offline launch is critical, the plugin's Workbox integration removes an entire class of subtle bugs (stale cache, missed assets, update loops). The tradeoff is an opaque dependency, but the plugin is actively maintained and widely used with Vite.",
+      "impact": "high"
+    },
+    {
+      "id": "Q2",
+      "decision": "registerType: 'autoUpdate' — the SW updates itself automatically without user confirmation",
+      "assumption": "Niyet is a personal tool deployed by a single developer. Users who have the app installed should always get the latest version without being prompted. There is no multi-tenant concern about forcing updates on paying customers.",
+      "alternatives": [
+        "registerType: 'prompt' — show a 'New version available, reload?' banner; safer for production apps with many users; avoids surprising mid-session updates",
+        "Manual SW update: skipWaiting only on explicit user action"
+      ],
+      "recommendation": "autoUpdate is correct for this use case. If the app grows to Phase 2+ with many anonymous users, revisit to 'prompt' to avoid disrupting a session mid-task.",
+      "impact": "med"
+    },
+    {
+      "id": "Q3",
+      "decision": "theme_color set to #065f46 (emerald-800) rather than the darkest base color #022c22",
+      "assumption": "theme_color controls the browser chrome color (Android address bar, task switcher card header). Using emerald-800 is more visually distinctive and matches the PRD's 'emerald accent' language. Using the near-black #022c22 would make the browser chrome invisible against a black status bar.",
+      "alternatives": [
+        "#022c22 (background_color) — consistent with app background, fully dark; risk: the task-switcher card header blends into the device chrome and the app looks like it has no branding",
+        "#d97706 (gold/amber) — matches the gold accent color; risk: too high contrast, clashes with the emerald body"
+      ],
+      "recommendation": "#065f46 as specified. It is the correct semantic choice: visible as emerald, distinct from device chrome, consistent with PRD §5.1 design language.",
+      "impact": "low"
+    },
+    {
+      "id": "Q4",
+      "decision": "Supabase NetworkFirst caching stub is included in Block 15 SW config even though Supabase does not exist until Block 16",
+      "assumption": "Adding the urlPattern stub now costs nothing (no Supabase requests exist to match it) and avoids a service worker re-deploy and cache version bump mid-Block-16 implementation. The SW cache name niyet-supabase-v1 will remain empty until Block 16.",
+      "alternatives": [
+        "Omit the Supabase runtimeCaching entry entirely and add it in Block 16: cleaner separation of concerns, but requires a second SW update and risks a brief window where Supabase calls bypass the cache strategy"
+      ],
+      "recommendation": "Include the stub. The cost is zero and it simplifies Block 16 — that block can focus on Supabase data logic rather than SW plumbing.",
+      "impact": "low"
+    },
+    {
+      "id": "Q5",
+      "decision": "Icons use 'any maskable' combined purpose value on the 192 and 512 sizes rather than separate icon entries per purpose",
+      "assumption": "The W3C Web App Manifest spec allows space-separated purpose values. Chrome, Firefox, and Safari all accept 'any maskable' as a valid combined value. Using a single entry reduces manifest verbosity.",
+      "alternatives": [
+        "Separate entries: { src: icon-192.png, purpose: 'any' } + { src: icon-192-maskable.png, purpose: 'maskable' } — more explicit, allows different artwork for maskable (full-bleed) vs any (padded); required if the icon design needs a different layout for maskable safe zone vs letterboxed"
+      ],
+      "recommendation": "Use 'any maskable' combined value on a single icon with the design element fully within the 80% safe zone. This is simpler and sufficient unless the icon design requires different artwork per context. If the calligraphy glyph needs to be larger for non-maskable display, split into two entries in a future polish pass.",
+      "impact": "low"
+    }
+  ],
+  "open_questions": [
+    "Icon design: should the icon use the Arabic calligraphy 'نية' glyph (matching the PRD wordmark motif) or a stylised flame (matching the fire/dopamine reward motif)? The calligraphy is more on-brand; the flame is more universally legible at small sizes. Decision affects icon-source.svg creation in step 15.2.",
+    "Should the 'Ana ekrana ekle' install affordance be surfaced as an explicit button in the app UI (using the isInstallable() / triggerInstall() API from pwa.js), or left entirely to the browser's native prompt? A UI button gives more control over timing and copy but adds UI complexity. This is marked as a future polish item but the hook is built in Block 15.",
+    "Cloudflare Pages serves static assets with Cache-Control: public, max-age=31536000 for hashed assets and no-cache for index.html. Does it serve sw.js with no-cache? This is critical — if sw.js is cached by the CDN, SW updates will not propagate. Must verify Cloudflare Pages header behavior for the /sw.js path after Block 19 deploy.",
+    "Should devOptions.enabled be set to true in vite-plugin-pwa config for development testing? Enabling it in dev avoids needing a production deploy for every SW change but creates cache-related confusion during iterative development. Recommended: keep disabled in dev, use `npm run build && npx serve dist` for SW testing.",
+    "The PRD uses 'niyet.burakgizlice.com' as the production domain. The start_url '/' in the manifest will resolve against this origin. If the Cloudflare Pages preview URL (*.pages.dev) is also used for testing, will the SW scope and start_url work correctly? Answer: yes — start_url '/' is relative to the manifest origin, so it works on both domains."
+  ]
+}

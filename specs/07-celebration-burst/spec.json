@@ -1,0 +1,204 @@
+{
+  "block": 7,
+  "slug": "celebration-burst",
+  "title": "Celebration Particle Burst",
+  "deliverable": "CelebrationBurst.jsx fires 18 randomised emoji particles from screen centre on every 3rd completion (done.length % 3 === 0) and when the queue becomes empty; particles animate via per-particle CSS custom properties, self-clean from the DOM after 1.6s, and accumulate no ghost nodes across repeated triggers.",
+  "depends_on": [4],
+  "scope": {
+    "in": [
+      "src/components/CelebrationBurst.jsx — full component implementation",
+      "18 emoji particles per burst from the set ⭐ ✨ 🌟 💫 🎉 🚀 💎 🔥 🌙 ⚡",
+      "Per-particle randomised values: angle (0–360 deg), travel distance (120–260 px), spin (−540 to +540 deg), font-size (1.4–2.6 rem), animation-delay (0–280 ms)",
+      "CSS @keyframes injected once into a <style> tag: 0% scale(0.3) opacity(0) → 15% scale(1.1) opacity(1) → 100% scale(0.5) opacity(0) with translateX/translateY driven by CSS vars --dx/--dy",
+      "Total animation window per particle: 1.4 s duration + up to 0.28 s delay = 1.68 s max; component unmounts / DOM cleared at 1.75 s",
+      "Trigger condition 1: done.length % 3 === 0 AND done.length > 0 (evaluated after the new done item is appended)",
+      "Trigger condition 2: queue becomes empty (queue.length === 0) after a completion, regardless of done count",
+      "Trigger de-duplication: if both conditions are simultaneously true, fire exactly one burst (not two)",
+      "Cleanup: each particle span removed from DOM individually via onAnimationEnd; parent container also forcibly removed via setTimeout fallback at 1.75 s",
+      "Component accepts props: active (bool), onDone (callback fired after cleanup)"
+    ],
+    "out": [
+      "Tick / completion sound (Block 5)",
+      "Fire/streak counter display and milestone labels (Block 8)",
+      "Checkmark SVG draw animation and glow ring (Block 6)",
+      "Card slide-out exit animation (Block 4)",
+      "Any confetti library or canvas-based renderer — pure CSS/DOM only",
+      "Supabase writes or localStorage persistence — burst is ephemeral UI only"
+    ]
+  },
+  "files": [
+    {
+      "path": "src/components/CelebrationBurst.jsx",
+      "action": "create",
+      "purpose": "Self-contained burst component. Generates 18 particle objects with randomised values on each render when active=true, injects a one-time <style> keyframe block, renders positioned spans with inline CSS custom properties, and cleans up every node after animation completes."
+    },
+    {
+      "path": "src/components/Queue.jsx",
+      "action": "modify",
+      "purpose": "Import CelebrationBurst and wire trigger logic: after completion state update, evaluate done.length % 3 === 0 || queue.length === 0 and pass active={true} to CelebrationBurst; reset active on onDone callback."
+    }
+  ],
+  "packages": [],
+  "implementation_steps": [
+    {
+      "id": "7.1",
+      "description": "Define the emoji pool and particle count constants inside CelebrationBurst.jsx",
+      "details": "Export-free const EMOJIS = ['⭐','✨','🌟','💫','🎉','🚀','💎','🔥','🌙','⚡'] and const PARTICLE_COUNT = 18. Place at module top-level so they are not re-created on each render."
+    },
+    {
+      "id": "7.2",
+      "description": "Write a pure generateParticles() helper that returns an array of 18 particle descriptor objects",
+      "details": "Each descriptor: { id: crypto.randomUUID(), emoji: EMOJIS[Math.floor(Math.random()*10)], angleDeg: Math.random()*360, distancePx: 120 + Math.random()*140, spinDeg: (Math.random()-0.5)*1080, sizePx: 1.4 + Math.random()*1.2, delayMs: Math.random()*280 }. dx and dy are derived inside the JSX render as distancePx*cos(angleDeg) and distancePx*sin(angleDeg) so the helper stays free of trig."
+    },
+    {
+      "id": "7.3",
+      "description": "Inject the @keyframes block exactly once via a module-level side effect",
+      "details": "At module load time (outside the component function), check if document.getElementById('niyet-burst-keyframes') exists; if not, create a <style id='niyet-burst-keyframes'> and append to document.head. Keyframe name: niyetBurst. Definition: @keyframes niyetBurst { 0% { transform: translate(0,0) scale(0.3) rotate(0deg); opacity:0; } 15% { transform: translate(calc(var(--dx)*0.15px), calc(var(--dy)*0.15px)) scale(1.1) rotate(calc(var(--spin)*0.15deg)); opacity:1; } 100% { transform: translate(calc(var(--dx)*1px), calc(var(--dy)*1px)) scale(0.5) rotate(calc(var(--spin)*1deg)); opacity:0; } }. Use unitless multiply pattern: --dx and --dy store the pixel values as raw numbers; multiply by 1px in calc()."
+    },
+    {
+      "id": "7.4",
+      "description": "Build the CelebrationBurst component with controlled active prop",
+      "details": "Signature: export default function CelebrationBurst({ active, onDone }). Use a ref containerRef pointing to a fixed-position full-screen div (pointer-events:none, z-index:9999, inset:0, position:fixed). On active===true (useEffect dependency), call generateParticles(), store result in a ref (not state, to avoid re-render), imperatively create span elements and append to containerRef.current. When active changes from true→false or on unmount, clear the container. Schedule a setTimeout(cleanup, 1750) as a hard fallback."
+    },
+    {
+      "id": "7.5",
+      "description": "Render each particle span with correct inline style and CSS custom properties",
+      "details": "Each span style: { position:'absolute', left:'50%', top:'50%', fontSize: `${p.sizePx}rem`, lineHeight:1, userSelect:'none', pointerEvents:'none', '--dx': p.distancePx * Math.cos(p.angleDeg * Math.PI/180), '--dy': p.distancePx * Math.sin(p.angleDeg * Math.PI/180), '--spin': p.spinDeg, animation: `niyetBurst 1.4s cubic-bezier(.2,.8,.4,1) ${p.delayMs}ms forwards` }. The span text content is the emoji string. Attach onAnimationEnd handler that removes the span from the DOM; the span removes itself only after its own animation (including delay) completes."
+    },
+    {
+      "id": "7.6",
+      "description": "Implement individual-span cleanup via onAnimationEnd and container fallback",
+      "details": "onAnimationEnd on each span: span.remove(). This fires at 1.4s + delayMs for each particle. After the last particle's max delay (280ms) + duration (1400ms) = 1680ms, all spans are gone. The setTimeout fallback at 1750ms calls containerRef.current && (containerRef.current.innerHTML = '') as insurance against missed animationEnd events (e.g. tab backgrounded). After fallback fires, call onDone() so parent can set active=false."
+    },
+    {
+      "id": "7.7",
+      "description": "Wire trigger logic in Queue.jsx",
+      "details": "In the completion handler (after the 500ms card exit delay, when done[] is updated), compute: const newDoneLength = done.length + 1; const queueWillBeEmpty = queue.length === 1; const triggerBurst = (newDoneLength % 3 === 0) || queueWillBeEmpty; if (triggerBurst) setBurstActive(true). Use a single boolean state burstActive. Pass active={burstActive} onDone={()=>setBurstActive(false)} to <CelebrationBurst>. Guard against double-fire: because burstActive resets only on onDone, if user completes extremely fast the next burst queues after onDone fires."
+    },
+    {
+      "id": "7.8",
+      "description": "Handle the simultaneous-trigger de-duplication",
+      "details": "Because triggerBurst is a single boolean OR, both conditions collapsing to true fires exactly one burst. No additional guard needed — single setBurstActive(true) call is idempotent if already true because React batches the setState and the component re-renders once."
+    },
+    {
+      "id": "7.9",
+      "description": "Verify no DOM accumulation across rapid successive bursts",
+      "details": "On each activation (useEffect on active), call containerRef.current.innerHTML = '' before generating new particles to clear any residual spans from a previous burst that completed cleanup concurrently. This ensures a clean slate for each burst cycle regardless of timing edge cases."
+    }
+  ],
+  "data_structures": [
+    {
+      "name": "ParticleDescriptor",
+      "shape": "{ id: string, emoji: string, angleDeg: number, distancePx: number, spinDeg: number, sizePx: number, delayMs: number }",
+      "notes": "Generated fresh per burst by generateParticles(). Stored in a ref (not React state) to avoid unnecessary re-renders. dx/dy in pixels are computed from angleDeg+distancePx at render time."
+    },
+    {
+      "name": "CelebrationBurstProps",
+      "shape": "{ active: boolean, onDone: () => void }",
+      "notes": "active transitions false→true to fire; component calls onDone() after full cleanup (~1750ms) to let parent reset active to false. Parent must not set active=true again until onDone fires to prevent overlapping burst cycles."
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "CelebrationBurst",
+      "signature": "export default function CelebrationBurst({ active: boolean, onDone: () => void }): JSX.Element",
+      "purpose": "Renders a fixed-position transparent overlay; when active flips true, imperatively populates it with 18 particle spans and schedules their cleanup. Stateless from the parent's perspective — parent owns only the boolean trigger."
+    },
+    {
+      "name": "generateParticles",
+      "signature": "function generateParticles(): ParticleDescriptor[]",
+      "purpose": "Pure function, no side effects. Returns a fresh array of 18 particle descriptors with all randomised values pre-computed. Called inside the useEffect that watches active."
+    }
+  ],
+  "acceptance_criteria": [
+    "Exactly 18 particle spans are injected into the DOM on each burst trigger; no more, no fewer.",
+    "Completing the 3rd task (done.length becomes 3) triggers a burst; completing the 6th, 9th, etc. each trigger a burst.",
+    "Completing any task that empties the queue triggers a burst regardless of done.length divisibility.",
+    "If the 3rd completion simultaneously empties the queue, exactly one burst fires (not two).",
+    "No burst fires on completions 1, 2 (done.length 1, 2) unless the queue is empty.",
+    "Each particle is drawn from the emoji set ⭐ ✨ 🌟 💫 🎉 🚀 💎 🔥 🌙 ⚡.",
+    "Particles visually explode outward from the viewport centre in distinct directions (not all to the same corner).",
+    "Particle animations are staggered — not all particles appear simultaneously.",
+    "No particle span nodes remain in the DOM 2 seconds after a burst starts.",
+    "Rapidly completing tasks in sequence (e.g. emptying a 6-item queue) does not leave orphaned spans in the DOM.",
+    "The component renders correctly on a 375px viewport (iPhone SE) — particles originate from centre and travel outward without layout reflow.",
+    "The @keyframes style tag is injected into document.head exactly once per page load, not duplicated across multiple bursts.",
+    "The onDone callback is always invoked after cleanup, allowing the parent to reset the active flag."
+  ],
+  "verification": [
+    "Add 3 tasks, complete them one by one; burst fires on the 3rd completion. Inspect DOM immediately after: 18 spans present. Wait 2s; inspect again: 0 spans present.",
+    "Add 1 task, complete it; burst fires (queue empty). Confirm in DevTools > Elements that no particle spans persist.",
+    "Add 4 tasks, complete 3: burst on 3rd. Complete 4th: burst again (queue empty AND done.length=4, not divisible by 3, but queue is empty).",
+    "Add 6 tasks, complete all 6: burst on completions 3 and 6; on completion 6 the queue is also empty — confirm single burst not double.",
+    "Add 2 tasks, complete 2: burst only on 2nd (queue empty, done.length=2 not divisible by 3).",
+    "In DevTools > Elements, search for the keyframe <style> tag after 5 burst cycles; confirm there is exactly one tag.",
+    "Throttle CPU to 4x slowdown in DevTools; complete 3 tasks rapidly; confirm no zombie spans after 3 seconds.",
+    "Resize viewport to 375×667; trigger a burst; visually confirm particles radiate from centre of the visible screen area.",
+    "In React DevTools, confirm CelebrationBurst re-renders only when active changes, not on every parent render."
+  ],
+  "questionable_decisions": [
+    {
+      "id": "Q1",
+      "decision": "Imperative DOM manipulation inside useEffect rather than declarative React state-driven rendering",
+      "assumption": "Rendering 18 spans via React state (array of particle objects → map → span) and relying on React unmounting for cleanup is clean and works equally well.",
+      "alternatives": [
+        "Declarative: store particles in useState, render via .map(), use onAnimationEnd to filter them out of state one by one",
+        "CSS-only declarative with React portals into document.body"
+      ],
+      "recommendation": "Use the declarative useState approach instead. It avoids mixing imperative DOM ops with React's reconciler, is easier to test, and React batches the state updates from onAnimationEnd anyway. The perceived performance difference is negligible for 18 nodes.",
+      "impact": "med"
+    },
+    {
+      "id": "Q2",
+      "decision": "Injecting @keyframes via a module-level side effect at import time",
+      "assumption": "The style tag will always be available when the component mounts, and SSR / test environments tolerate document.head access at module load.",
+      "alternatives": [
+        "Inject inside a useEffect with an empty dependency array (first mount only)",
+        "Use a <style> JSX element rendered inside the component with the keyframe definition inline",
+        "Use a plain .css file imported at the top of the module"
+      ],
+      "recommendation": "Move injection into a useEffect with [] dependency (or a custom useInsertionEffect hook in React 18) to avoid module-level side effects that break SSR and unit-test environments. A static .css import is the simplest option if the project already has a global CSS file.",
+      "impact": "low"
+    },
+    {
+      "id": "Q3",
+      "decision": "Trigger evaluation uses done.length after the state update is committed (post-500ms delay)",
+      "assumption": "Queue.jsx reads done.length from the already-updated state when computing triggerBurst, meaning the count is correct.",
+      "alternatives": [
+        "Compute newDoneLength = done.length + 1 before the state update (current spec recommendation) to avoid depending on React batching order",
+        "Derive trigger from a useEffect watching done.length changes"
+      ],
+      "recommendation": "Use the pre-computed newDoneLength = done.length + 1 approach as specified in step 7.7 — it is explicit and immune to React batching subtleties. A useEffect watching done is also valid but adds an extra render cycle.",
+      "impact": "high"
+    },
+    {
+      "id": "Q4",
+      "decision": "Hard 1.75s setTimeout fallback to force-clear the container regardless of onAnimationEnd",
+      "assumption": "animationEnd events can be silently dropped when the tab is backgrounded (Page Visibility API hides the tab, CSS animations pause or skip).",
+      "alternatives": [
+        "Listen to visibilitychange and imperatively clear the container when the tab is hidden",
+        "Skip the fallback and rely entirely on onAnimationEnd (simpler, but risks zombie spans on tab-switch)"
+      ],
+      "recommendation": "Keep the setTimeout fallback as specified; it is a one-line safety net. Optionally also add a document.addEventListener('visibilitychange', cleanup) listener that fires when hidden, for robustness during rapid tab switching.",
+      "impact": "low"
+    },
+    {
+      "id": "Q5",
+      "decision": "Emoji font rendering at up to 2.6rem for particle size",
+      "assumption": "All target platforms (iOS Safari, Android Chrome, desktop) render emoji at this size without pixellation or fallback box characters.",
+      "alternatives": [
+        "Cap max size at 2rem for safer cross-platform rendering",
+        "Use SVG emoji or icon components instead of raw Unicode emoji for guaranteed rendering"
+      ],
+      "recommendation": "Raw Unicode emoji at 1.4–2.6rem is safe on all modern platforms; this is standard practice. No change needed. If QA on a specific Android skin shows boxes, add font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif to the particle spans.",
+      "impact": "low"
+    }
+  ],
+  "open_questions": [
+    "Should the burst also fire on the very first completion (done.length becomes 1 for the first time ever) as an onboarding delight moment, or strictly follow the every-3rd rule?",
+    "If the user completes tasks while the previous burst is still animating (e.g. rapid tapping), should the second burst queue or be suppressed? Current spec suppresses until onDone fires — is that the right UX?",
+    "Does 'queue becomes empty' mean immediately after the card exit animation (500ms delay) or at the moment of tap? Spec assumes after the delay when done[] is updated.",
+    "Should the particle burst be suppressible via a user setting (e.g. reduced-motion / prefers-reduced-motion media query)? The PRD does not mention this but WCAG recommends it.",
+    "Block 4 (completion flow) defines the 500ms delay before state update. Does CelebrationBurst fire before or after that delay? Spec fires it after (alongside the state update) — confirm this is the intended sequencing with Block 4 implementer."
+  ]
+}

@@ -1,0 +1,355 @@
+{
+  "block": 14,
+  "slug": "localstorage-persistence",
+  "title": "localStorage Persistence (Source of Truth)",
+  "deliverable": "Close the tab, reopen — queue, done log, chains, and show_count all survive the reload. The app is fully usable anonymously and offline. Every read/write goes through lib/storage.js hitting localStorage first. First run seeds 7 default chains if absent.",
+  "depends_on": [3, 9, 10, 12, 13],
+  "scope": {
+    "in": [
+      "lib/storage.js: all storage key constants, JSON serialisation helpers, schema version field, read/write/clear per collection",
+      "Schema version constant STORAGE_VERSION and migration stub for future upgrades",
+      "Storage keys: NIYET_QUEUE, NIYET_DONE, NIYET_CHAINS, NIYET_SHOW_COUNT, NIYET_STORAGE_VERSION",
+      "readQueue(), writeQueue(), readDone(), writeDone(), readChains(), writeChains(), readShowCount(), writeShowCount(), clearAll()",
+      "JSON parse error safety: corrupt/missing key returns typed empty default, never throws",
+      "DEFAULT_CHAINS constant (7 chains from PRD §3.3) in lib/defaultChains.js",
+      "Seed logic: on first run (chains key absent or empty) write DEFAULT_CHAINS to NIYET_CHAINS",
+      "Refactor hooks/useQueue.js to initialise state from storage and persist every mutation",
+      "Refactor hooks/useChains.js to initialise state from storage and persist every mutation",
+      "show_count persisted: read on mount in the component that owns it (Queue or App); write on every change",
+      "done items persist with completed_at ISO timestamp",
+      "queue items persist with id (uuid-like) and text fields and position (index)",
+      "chains persist with id, name, emoji, steps array, position, is_default flag",
+      "clearAll() resets queue, done, and show_count but preserves chains (matching PRD 'Temizle' semantics — only fire/done reset, not chains)",
+      "clearDone() helper for 'Temizle' button: clears done list only, leaves queue and chains intact",
+      "TypeScript-style JSDoc annotations on all exported functions (no TS compilation required)"
+    ],
+    "out": [
+      "Supabase reads or writes (Block 16-18)",
+      "Auth or user identity (Block 16)",
+      "Sync/merge logic (Block 17-18)",
+      "Service worker or offline caching (Block 15)",
+      "Any network calls whatsoever",
+      "Fire/streak state (owned by useQueue already from Block 8 — just ensure it derives from done.length post-refresh)",
+      "Celebration burst trigger (Block 7 logic unchanged)",
+      "UI components (no JSX in this block)",
+      "Queue completion animation timing (Block 4-6 logic unchanged)"
+    ]
+  },
+  "files": [
+    {
+      "path": "src/lib/storage.js",
+      "action": "modify",
+      "purpose": "Replace stub. Define all storage key constants, STORAGE_VERSION, DEFAULT_CHAINS import, and all read/write/clear helper functions. This is the single source of truth for all localStorage access in the app."
+    },
+    {
+      "path": "src/lib/defaultChains.js",
+      "action": "create",
+      "purpose": "Export DEFAULT_CHAINS array: the 7 PRD-specified chains with Turkish step text, emoji, name, generated stable IDs, position index, and is_default: true. Imported by storage.js seed logic and also importable directly for testing."
+    },
+    {
+      "path": "src/hooks/useQueue.js",
+      "action": "modify",
+      "purpose": "Initialise queue and done state from storage.readQueue()/storage.readDone() instead of empty arrays. Wrap every state mutation (addSteps, completeTask, clearDone) with a matching storage write call."
+    },
+    {
+      "path": "src/hooks/useChains.js",
+      "action": "modify",
+      "purpose": "Initialise chains state from storage.readChains(). On first call, if chains are absent, seed DEFAULT_CHAINS via storage.writeChains() then use that. Wrap create/update/delete mutations with storage writes."
+    },
+    {
+      "path": "src/components/Queue.jsx",
+      "action": "modify",
+      "purpose": "Remove local show_count useState. Accept showCount and onCountChange as props from App.jsx (C7 lift). Pass them through to CountSelector."
+    },
+    {
+      "path": "src/App.jsx",
+      "action": "modify",
+      "purpose": "Lift show_count state here (C7). Initialise from storage.readShowCount(). Provide handleCountChange that calls storage.writeShowCount(n) and setShowCount(n). Pass showCount and handleCountChange as props to Queue."
+    }
+  ],
+  "packages": [],
+  "implementation_steps": [
+    {
+      "id": "14.1",
+      "description": "Define storage key constants and STORAGE_VERSION in lib/storage.js",
+      "details": "At the top of src/lib/storage.js define: `export const STORAGE_VERSION = 1;` and the key constants: `const KEYS = { VERSION: 'niyet_storage_version', QUEUE: 'niyet_queue', DONE: 'niyet_done', CHAINS: 'niyet_chains', SHOW_COUNT: 'niyet_show_count' };`. All localStorage access in the file uses these constants — never raw string keys. The KEYS object is not exported; only helpers are exported. This ensures rename refactors stay in one place."
+    },
+    {
+      "id": "14.2",
+      "description": "Implement low-level safeGet / safeSet primitives",
+      "details": "Add two private helpers (not exported): `function safeGet(key, fallback) { try { const raw = localStorage.getItem(key); return raw === null ? fallback : JSON.parse(raw); } catch { return fallback; } }` and `function safeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('[niyet/storage] write failed:', key, e); } }`. The try/catch in safeGet handles both missing keys and corrupt JSON (e.g. from browser extensions stomping the value). The try/catch in safeSet handles storage quota exceeded — log a warning but do not throw, so the UI stays functional."
+    },
+    {
+      "id": "14.3",
+      "description": "Implement schema version read/write and migration stub",
+      "details": "Export: `export function readStorageVersion() { return safeGet(KEYS.VERSION, 0); }` and `export function writeStorageVersion(v) { safeSet(KEYS.VERSION, v); }`. Export: `export function runMigrations() { const current = readStorageVersion(); if (current === STORAGE_VERSION) return; // future: if (current < 2) migrate_v1_to_v2(); writeStorageVersion(STORAGE_VERSION); }`. Call runMigrations() once at app boot (in main.jsx or App.jsx before any hook initialises). At STORAGE_VERSION=1 this is effectively a no-op that stamps the version on first run."
+    },
+    {
+      "id": "14.4",
+      "description": "Implement queue read/write helpers",
+      "details": "Queue items shape: `{ id: string, text: string, position: number }`. Export: `export function readQueue() { return safeGet(KEYS.QUEUE, []); }`. Export: `export function writeQueue(items) { safeSet(KEYS.QUEUE, items.map((item, i) => ({ id: item.id, text: item.text, position: i }))); }`. The write helper re-derives position from array index so the position field always matches the array order — callers never need to manage it manually. IDs are generated client-side using `function genId() { return crypto.randomUUID(); }` — not exported, used internally when a new item is created. Both localhost and HTTPS are secure contexts so crypto.randomUUID() is always available; no base36 fallback is needed. Note: IDs for items created before Block 14 may not exist; on first readQueue after migration ensure each item has an id (add a migrate-in-place step in runMigrations if needed for v1→v2 later)."
+    },
+    {
+      "id": "14.5",
+      "description": "Implement done items read/write helpers",
+      "details": "Done items shape: `{ id: string, text: string, completed_at: string (ISO 8601), chain_id: string|null }`. Export: `export function readDone() { return safeGet(KEYS.DONE, []); }`. Export: `export function writeDone(items) { safeSet(KEYS.DONE, items); }`. Export: `export function clearDone() { safeSet(KEYS.DONE, []); }`. The completed_at field is an ISO 8601 string (`new Date().toISOString()`) set at completion time in useQueue — not set here. chain_id is null for items added manually; populated by useChains when a chain step is completed (carry the chain id through if available)."
+    },
+    {
+      "id": "14.6",
+      "description": "Implement chains read/write helpers",
+      "details": "Chain shape: `{ id: string, name: string, emoji: string, steps: string[], position: number, is_default: boolean }`. Export: `export function readChains() { return safeGet(KEYS.CHAINS, null); }`. Return null (not []) when absent so callers can distinguish 'never seeded' from 'seeded but user deleted all chains'. Export: `export function writeChains(chains) { safeSet(KEYS.CHAINS, chains.map((c, i) => ({ ...c, position: i }))); }`. Note: writeChains re-derives position from array order (same pattern as writeQueue)."
+    },
+    {
+      "id": "14.7",
+      "description": "Implement show_count read/write helpers",
+      "details": "Export: `export function readShowCount() { const v = safeGet(KEYS.SHOW_COUNT, 1); return [1, 2, 3, 5].includes(v) ? v : 1; }`. The guard ensures a corrupt or unexpected value (e.g. 4) falls back to 1 rather than breaking the UI. Export: `export function writeShowCount(n) { safeSet(KEYS.SHOW_COUNT, n); }`. No validation in the write path — callers (CountSelector) are trusted to only pass valid values."
+    },
+    {
+      "id": "14.8",
+      "description": "Implement clearAll helper",
+      "details": "Export: `export function clearAll() { safeSet(KEYS.QUEUE, []); safeSet(KEYS.DONE, []); safeSet(KEYS.SHOW_COUNT, 1); // deliberately does NOT clear chains — chains are rituals, not session data }`. This matches PRD 'Temizle' semantics: the fire/streak and done log reset, but chains (rituals) are preserved across sessions. Add a JSDoc comment on this function explaining the intentional chains exclusion."
+    },
+    {
+      "id": "14.9",
+      "description": "Create lib/defaultChains.js with the 7 PRD chains",
+      "details": "Create src/lib/defaultChains.js. Export `export const DEFAULT_CHAINS` as a frozen array of 7 objects. Use the following fixed hardcoded UUIDs (shared verbatim with Blocks 12/13/18) so they are deterministic across refreshes, devices, and won't duplicate on re-seed or sync merge. Chains in order matching PRD §3.3: (1) { id: 'b89e0940-9583-4803-9210-d73924e6cfa4', name: 'Namaz Hazırlığı', emoji: '🕌', steps: ['banyoya git (abdest için)', 'abdest al', 'odana su getir', 'su iç', 'seccadenin önünde dur'], position: 0, is_default: true }, (2) { id: '16064f10-a06a-4945-8340-5d0277ebe288', name: 'Odak Bloğu', emoji: '🔬', steps: ['zamanlayıcıyı aç', '15 dk başlat', 'proje notlarını aç', 'sadece ilk sayfayı oku', 'tek bir iş seç'], position: 1, is_default: true }, (3) { id: '17d995ea-0b2f-4110-b3c5-8ff06778a4bb', name: 'Sabah Demiri', emoji: '☀️', steps: ['yatakta doğrul', 'ayaklarını yere koy', 'ayağa kalk', 'banyoya yürü', 'yüzünü soğuk suyla yıka'], position: 2, is_default: true }, (4) { id: 'f905b229-be82-43c5-a267-6f9c38d5c038', name: 'Abdest', emoji: '💧', steps: ['elleri yıka', 'ağza su ver', 'buruna su ver', 'yüzü yıka', 'kolları yıka', 'başı mesh et', 'ayakları yıka'], position: 3, is_default: true }, (5) { id: 'c1ba5c76-b02b-4f5b-bd85-cfe11ab91b1f', name: 'Uyku Hazırlığı', emoji: '🌙', steps: ['telefonu bırak', 'diş fırçala', 'ışıkları kapat', 'yatağa gir'], position: 4, is_default: true }, (6) { id: '3a519d0d-f060-4f1b-be5f-efec4325610a', name: 'Evi Topla', emoji: '🧹', steps: ['bir yüzeyi temizle', 'çöpü topla', 'bulaşığı koy', 'tek bir çeki düzen'], position: 5, is_default: true }, (7) { id: '72990e01-d127-410e-88cd-f0c2e3b9edc0', name: 'Güne Başlama', emoji: '☕', steps: ['su iç', 'bugünün tek önceliğini seç', 'ilk küçük adımı at'], position: 6, is_default: true }. Use `Object.freeze(DEFAULT_CHAINS)` to prevent accidental mutation."
+    },
+    {
+      "id": "14.10",
+      "description": "Add seed logic to lib/storage.js",
+      "details": "Import DEFAULT_CHAINS from './defaultChains.js'. Export: `export function seedDefaultChainsIfAbsent() { const existing = readChains(); if (existing !== null && existing.length > 0) return; writeChains([...DEFAULT_CHAINS]); }`. The spread creates a shallow copy so the frozen DEFAULT_CHAINS constant is never mutated. This function is called once on app boot (from useChains initialisation, not from storage.js itself — storage.js has no knowledge of React lifecycle)."
+    },
+    {
+      "id": "14.11",
+      "description": "Refactor hooks/useQueue.js to read/write through storage",
+      "details": "At hook initialisation: `const [queue, setQueue] = useState(() => readQueue());` and `const [done, setDone] = useState(() => readDone());` — use lazy initialisers so localStorage is read synchronously on first render, not on every render. Wrap every state setter with a paired storage write: (a) addSteps: generate IDs for new items, concat to queue, call writeQueue(newQueue), setQueue(newQueue). (b) completeTask: move item from queue to done with completed_at timestamp, call writeQueue(newQueue) and writeDone(newDone), then setQueue/setDone. (c) The 'Temizle' handler: call clearDone() and clearAll() as appropriate, then setQueue([]) and setDone([]). Ensure the state update and storage write are always paired in the same synchronous call — never split across effects, to avoid state/storage drift."
+    },
+    {
+      "id": "14.12",
+      "description": "Refactor hooks/useChains.js to read/write through storage",
+      "details": "At hook initialisation: call seedDefaultChainsIfAbsent() first (idempotent), then `const [chains, setChains] = useState(() => readChains() ?? []);`. The ?? [] handles the (now impossible after seeding) null case defensively. Wrap mutations: (a) createChain: assign a new id via crypto.randomUUID(), append to chains array, call writeChains(newChains), setChains(newChains). (b) updateChain: map over chains to replace matching id, write + set. (c) deleteChain: filter out matching id, write + set. (d) reorderChains (if implemented): write + set. loadChain (appending steps to queue) does not touch chains storage — it calls addSteps from useQueue."
+    },
+    {
+      "id": "14.13",
+      "description": "Lift show_count from Queue.jsx to App.jsx and persist it",
+      "details": "C7 — lift show_count from Queue.jsx to App.jsx. Remove the useState(1) from Queue.jsx. In App.jsx declare `const [showCount, setShowCount] = useState(() => readShowCount())` and pass showCount and a handleCountChange callback as props down to Queue.jsx and CountSelector. handleCountChange: `const handleCountChange = (n) => { writeShowCount(n); setShowCount(n); }`. Wire handleCountChange as the onChange to CountSelector instead of setShowCount directly. This placement is required so Block 18 (Supabase sync) can read/write profiles.show_count from App.jsx without touching Queue.jsx."
+    },
+    {
+      "id": "14.14",
+      "description": "Call runMigrations() at app boot",
+      "details": "In src/main.jsx (before ReactDOM.createRoot render call) or at the top of App.jsx component body (before any useState): import runMigrations from './lib/storage.js' and call it once. Since STORAGE_VERSION is 1 and there are no migrations yet, this only stamps the version key on first run. This ensures future blocks can add migrations without finding an unstamped store."
+    },
+    {
+      "id": "14.15",
+      "description": "Verify full persistence end-to-end",
+      "details": "Manual test: (1) Open app fresh (clear localStorage first via DevTools). (2) Confirm 7 default chains appear in Chains screen. (3) Add 3 queue items via Add Steps. (4) Complete 1 item. (5) Switch show_count to 3. (6) Close tab. (7) Reopen. Confirm: show_count is 3, queue has 2 remaining items, done log has 1 completed item with a timestamp, all 7 chains still present. Also test: open DevTools → Application → Local Storage — confirm all 5 keys are present with valid JSON."
+    }
+  ],
+  "data_structures": [
+    {
+      "name": "QueueItem",
+      "shape": "{ id: string, text: string, position: number }",
+      "notes": "position is always the array index (re-derived on every write). id is a UUID generated by crypto.randomUUID() (same generator used by Block 18). Stored as JSON array under key 'niyet_queue'. Empty default: []."
+    },
+    {
+      "name": "DoneItem",
+      "shape": "{ id: string, text: string, completed_at: string, chain_id: string | null }",
+      "notes": "completed_at is ISO 8601 string (new Date().toISOString()). chain_id is null for manually added items. Stored as JSON array under key 'niyet_done'. Reverse-chronological display is derived at render time (slice().reverse()), not at storage time."
+    },
+    {
+      "name": "Chain",
+      "shape": "{ id: string, name: string, emoji: string, steps: string[], position: number, is_default: boolean }",
+      "notes": "steps is an ordered string array. position is re-derived from array index on write. is_default=true for the 7 shipped chains (enables future UI differentiation, e.g. not deletable without confirmation, or restored on demand). Stored as JSON array under key 'niyet_chains'. readChains() returns null when the key is absent (distinguishes 'never seeded' from empty)."
+    },
+    {
+      "name": "StorageSchema",
+      "shape": "{ niyet_storage_version: number, niyet_queue: QueueItem[], niyet_done: DoneItem[], niyet_chains: Chain[], niyet_show_count: 1 | 2 | 3 | 5 }",
+      "notes": "All keys prefixed 'niyet_' to avoid collisions with other apps on the same origin. STORAGE_VERSION=1 at this block. Future blocks increment this to trigger migrations."
+    },
+    {
+      "name": "DEFAULT_CHAINS",
+      "shape": "readonly Chain[] — 7 elements with fixed hardcoded UUIDs shared verbatim with Blocks 12/13/18",
+      "notes": "Defined in lib/defaultChains.js, frozen. Used for first-run seeding and potentially for 'restore defaults' in future. IDs are fixed hardcoded UUIDs (not random), so repeated seeding calls are idempotent (seedDefaultChainsIfAbsent checks length > 0 anyway) and sync/merge across devices can deduplicate by ID."
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "readQueue",
+      "signature": "function readQueue(): QueueItem[]",
+      "purpose": "Read current queue from localStorage. Returns [] if absent or corrupt."
+    },
+    {
+      "name": "writeQueue",
+      "signature": "function writeQueue(items: QueueItem[]): void",
+      "purpose": "Serialise queue array to localStorage, re-deriving position from array index."
+    },
+    {
+      "name": "readDone",
+      "signature": "function readDone(): DoneItem[]",
+      "purpose": "Read done log from localStorage. Returns [] if absent or corrupt."
+    },
+    {
+      "name": "writeDone",
+      "signature": "function writeDone(items: DoneItem[]): void",
+      "purpose": "Serialise done log to localStorage."
+    },
+    {
+      "name": "clearDone",
+      "signature": "function clearDone(): void",
+      "purpose": "Write an empty array to the done key. Used by 'Temizle' button handler."
+    },
+    {
+      "name": "readChains",
+      "signature": "function readChains(): Chain[] | null",
+      "purpose": "Read chains from localStorage. Returns null (not []) when the key is absent, enabling callers to distinguish 'never seeded' from 'user deleted all chains'."
+    },
+    {
+      "name": "writeChains",
+      "signature": "function writeChains(chains: Chain[]): void",
+      "purpose": "Serialise chains array to localStorage, re-deriving position from index."
+    },
+    {
+      "name": "readShowCount",
+      "signature": "function readShowCount(): 1 | 2 | 3 | 5",
+      "purpose": "Read persisted show_count. Validates against allowed values [1,2,3,5] and falls back to 1 for any invalid/missing value."
+    },
+    {
+      "name": "writeShowCount",
+      "signature": "function writeShowCount(n: 1 | 2 | 3 | 5): void",
+      "purpose": "Persist show_count to localStorage."
+    },
+    {
+      "name": "clearAll",
+      "signature": "function clearAll(): void",
+      "purpose": "Reset queue and done to empty arrays, show_count to 1. Intentionally preserves chains. Called by 'Temizle' session-reset flow."
+    },
+    {
+      "name": "seedDefaultChainsIfAbsent",
+      "signature": "function seedDefaultChainsIfAbsent(): void",
+      "purpose": "Write DEFAULT_CHAINS to localStorage if chains key is absent or empty. Idempotent — safe to call on every app boot."
+    },
+    {
+      "name": "runMigrations",
+      "signature": "function runMigrations(): void",
+      "purpose": "Compare stored version to STORAGE_VERSION. No-op at v1. Stamps version on first run. Called once at app boot before any React hook initialises."
+    },
+    {
+      "name": "useQueue (updated signature)",
+      "signature": "function useQueue(): { queue: QueueItem[], done: DoneItem[], addSteps: (lines: string[]) => void, completeTask: (id: string) => void, clearSession: () => void }",
+      "purpose": "All state initialises from localStorage via lazy useState initialisers. All mutations persist to localStorage synchronously before or at the same time as the React state update."
+    },
+    {
+      "name": "useChains (updated signature)",
+      "signature": "function useChains(): { chains: Chain[], createChain: (c: Omit<Chain,'id'|'position'>) => void, updateChain: (id: string, patch: Partial<Chain>) => void, deleteChain: (id: string) => void, loadChain: (id: string) => void }",
+      "purpose": "Seeds defaults on first call. All state initialises from localStorage. All mutations persist to localStorage. loadChain calls addSteps from useQueue (chains are not modified by loading)."
+    }
+  ],
+  "acceptance_criteria": [
+    "Adding queue items, closing the tab, and reopening shows the same items in the same order.",
+    "Completing a task persists it to the done log with a valid ISO timestamp visible after reload.",
+    "Clearing the session ('Temizle') resets queue and done to empty on reload, but chains are preserved.",
+    "show_count selection (1/2/3/5) survives a page reload.",
+    "On first run with empty localStorage, exactly 7 chains appear in the Chains screen.",
+    "Opening the app a second time does not add duplicate chains (seed is idempotent).",
+    "Manually creating a new chain persists it — it appears after reload.",
+    "Deleting a chain persists the deletion — it is absent after reload.",
+    "DevTools → Application → Local Storage shows all 5 keys (niyet_storage_version, niyet_queue, niyet_done, niyet_chains, niyet_show_count) with valid JSON values.",
+    "niyet_storage_version value equals 1 after first run.",
+    "Corrupt JSON in any localStorage key (manually injected via DevTools) does not crash the app — affected collection resets to its empty default.",
+    "The app works with no network connection (airplane mode) — all reads and writes succeed against localStorage alone.",
+    "No localStorage access occurs outside of lib/storage.js (no direct localStorage.getItem/setItem calls in hooks or components).",
+    "Queue item order is preserved across reloads (position field matches array index).",
+    "Done log items appear in reverse-chronological order (most recent first) in the UI after reload."
+  ],
+  "verification": [
+    "Open DevTools → Application → Local Storage → clear all niyet_ keys. Reload. Confirm 7 chains appear in Chains screen. Confirm niyet_storage_version = 1.",
+    "Add steps 'adım bir', 'adım iki', 'adım üç'. Confirm niyet_queue in DevTools has 3 items with correct text and position 0/1/2.",
+    "Complete 'adım bir'. Confirm niyet_done has 1 item with completed_at set. Confirm niyet_queue has 2 items.",
+    "Switch show_count to 3. Confirm niyet_show_count = 3 in DevTools.",
+    "Close tab. Reopen. Confirm: show_count selector shows 3, queue has 2 items in original order, done log shows 1 item, 7 chains present.",
+    "Via DevTools, set niyet_queue to 'not valid json'. Reload. Confirm app renders with empty queue and no crash or console error besides the storage warning.",
+    "Create a custom chain 'Test Zinciri' with 2 steps. Reload. Confirm it appears. Delete it. Reload. Confirm it is gone.",
+    "Switch to airplane mode (DevTools → Network → Offline). Add a task, complete it, change show_count. Reload (still offline). Confirm all three changes persisted.",
+    "Search the codebase for 'localStorage.getItem' and 'localStorage.setItem' — confirm zero occurrences outside src/lib/storage.js.",
+    "Run 'Temizle' (session clear). Reload. Confirm queue and done are empty, show_count is 1, chains are all still present."
+  ],
+  "questionable_decisions": [
+    {
+      "id": "Q1",
+      "decision": "readChains() returns null (not []) when the key is absent, while readQueue() and readDone() return [].",
+      "assumption": "Callers need to distinguish 'never seeded' from 'deliberately empty' for chains (to trigger the seed path), but for queue and done there is no meaningful distinction — empty is empty.",
+      "alternatives": [
+        "Use a separate boolean flag key 'niyet_chains_seeded' to track seed state, keeping readChains() returning [] always",
+        "Return [] everywhere and rely on the app writing DEFAULT_CHAINS during storage init regardless"
+      ],
+      "recommendation": "Keep null for chains as specified. The null/[] distinction is explicitly handled only in seedDefaultChainsIfAbsent and useChains initialisation — it does not leak into UI code. A separate flag key adds unnecessary key proliferation.",
+      "impact": "low"
+    },
+    {
+      "id": "Q2",
+      "decision": "show_count is persisted in Queue.jsx (or App.jsx) via a handler wrapper, not via a useEffect watching show_count.",
+      "assumption": "Co-locating the storage write with the state update in the event handler is safer than a useEffect, which could fire spuriously on hot-reload or StrictMode double-render during development.",
+      "alternatives": [
+        "useEffect(() => { writeShowCount(showCount); }, [showCount]) — declarative, but fires on every render including initial (need to skip with a ref guard)",
+        "Custom usePersist(key, value) hook that wraps useEffect with a skip-first-render ref"
+      ],
+      "recommendation": "Use the handler wrapper pattern for show_count (and all other state in useQueue/useChains). It is explicit, synchronous, and avoids useEffect timing subtleties. The pattern is consistent across all mutation points.",
+      "resolution": "C7 — show_count lifted to App.jsx and persisted here. Queue.jsx becomes a controlled component receiving showCount and onCountChange as props.",
+      "impact": "med"
+    },
+    {
+      "id": "Q3",
+      "decision": "genId() uses Date.now().toString(36) + Math.random().toString(36) rather than crypto.randomUUID().",
+      "assumption": "crypto.randomUUID() requires a secure context (HTTPS or localhost) and is not available in all environments used during development. The base36 approach is sufficient for client-side IDs that never need to be globally unique — they only need to be unique within a single user's localStorage.",
+      "alternatives": [
+        "crypto.randomUUID() — proper UUIDs, available in all modern browsers on HTTPS, but throws on non-secure contexts",
+        "A uuid library (e.g. nanoid) — adds a dependency for a trivial function",
+        "Incrementing integer IDs — simpler but non-portable across devices for future sync"
+      ],
+      "recommendation": "Use crypto.randomUUID() with a fallback to the base36 pattern: `const genId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2, 8))`. This gives proper UUIDs in production (HTTPS) and stays functional in dev. No extra package needed.",
+      "resolution": "C2 — locked: crypto.randomUUID(), no base36 fallback. Both localhost and HTTPS are secure contexts; the fallback is unnecessary. Same generator used by Block 18.",
+      "impact": "med"
+    },
+    {
+      "id": "Q4",
+      "decision": "clearAll() preserves chains rather than truly clearing everything.",
+      "assumption": "PRD §3.5 says 'Temizle resets the log AND the fire/streak' — fire/streak derives from done.length, so only done and queue need clearing. Chains are rituals, not session data; a user who taps Temizle is ending a work session, not deleting their saved routines.",
+      "alternatives": [
+        "A separate 'nuke everything' function that also clears chains (e.g. for a full reset / logout flow)",
+        "Prompt the user whether to clear chains too when Temizle is tapped"
+      ],
+      "recommendation": "Keep clearAll() as chains-preserving. If a true factory reset is ever needed (e.g. on sign-out), add a separate resetAll() that includes chains — that belongs in Block 17 (sync/auth). Naming clearAll() despite it not clearing everything is slightly misleading; consider renaming to clearSession() for clarity.",
+      "impact": "low"
+    },
+    {
+      "id": "Q5",
+      "decision": "Storage writes are synchronous and fire on every single mutation (no debouncing or batching).",
+      "assumption": "Queue and done collections are small (tens to low hundreds of items). localStorage.setItem on a small JSON payload is sub-millisecond and will not cause frame drops or perceptible jank. Debouncing would introduce a window where state and storage are out of sync, which is worse than the negligible write overhead.",
+      "alternatives": [
+        "Debounce writes with a 500ms delay — reduces write frequency but risks data loss on crash within the debounce window",
+        "Batch writes in a useEffect that runs after every render — declarative but harder to reason about correctness"
+      ],
+      "recommendation": "Keep synchronous writes on every mutation. The data size does not justify batching complexity. Revisit only if profiling shows actual jank (unlikely for this use case).",
+      "impact": "low"
+    },
+    {
+      "id": "Q6",
+      "decision": "DEFAULT_CHAINS uses stable hard-coded ID strings ('dc-namaz', etc.) rather than generated UUIDs.",
+      "assumption": "Stable IDs allow Block 17 (sync/merge) to deduplicate default chains by ID when merging local and Supabase data. A random ID generated at seed time would differ between devices, causing duplicates on merge.",
+      "alternatives": [
+        "Generate IDs at seed time and store them with the chain — loses deduplication ability across devices",
+        "Deduplicate by name+emoji in the merge layer — fragile if the user renames a default chain"
+      ],
+      "recommendation": "Keep stable hard-coded IDs for default chains. This is the correct choice for the future sync/merge block. Document in lib/defaultChains.js that these IDs are stable by design and must not be changed.",
+      "resolution": "C1 — fixed hardcoded UUIDs listed; shared across Blocks 12/13/18. The 'dc-namaz'-style scheme is replaced with proper UUIDs (e.g. b89e0940-9583-4803-9210-d73924e6cfa4 for Namaz Hazırlığı).",
+      "impact": "high"
+    }
+  ],
+  "open_questions": [
+    "Block 3 spec (Q2) deferred the question of lifting show_count from Queue.jsx to App.jsx — Block 14 must resolve this. If show_count stays in Queue.jsx, the storage read/write is straightforward. If lifted to App.jsx (for Block 18 Supabase sync of profiles.show_count), the persistence logic moves too. Recommendation: lift to App.jsx now, since Block 18 sync will need it there anyway — easier to move once than twice.",
+    "Should the done log have a maximum size cap in localStorage (e.g. keep last 200 items) to prevent unbounded storage growth for heavy users? PRD does not specify. For v1 with anonymous use this is probably fine, but worth deciding before the app goes live.",
+    "When the user creates a custom chain and later signs in (Block 17), the merge logic must decide how to handle chain IDs. Should user-created chains in localStorage get UUIDs that match Supabase's gen_random_uuid() format? If so, the genId() function for chains should use crypto.randomUUID() specifically (not the base36 fallback) to avoid format mismatches at merge time.",
+    "PRD §4.4 says 'first-ever authenticated sign-in seeds the 7 default chains for that user (skip if already present)'. Default chains will already exist in localStorage at sign-in. The merge logic (Block 17) must use the stable 'dc-*' IDs to recognise them as defaults and not create duplicates on the Supabase side.",
+    "Should a 'restore defaults' button be offered in the Chains screen (Block 12/13) to re-add any default chains the user deleted? This would use DEFAULT_CHAINS from lib/defaultChains.js. Not in scope for Block 14 but the constant is available for it."
+  ]
+}
