@@ -1,0 +1,60 @@
+/* Block 6: checkmark draw + gold glow reward animations.
+ * Consumed by CheckboxButton.jsx. Uses --color-gold (#d4af37) from index.css.
+ * Class names here MUST match the markup CheckboxButton renders:
+ *   .checkbox-circle           -> the 28px gold-fillable circle
+ *   .checkbox-check            -> the SVG <path> tick
+ *   .checkbox--animating       -> driver class added to the circle on tap
+ */
+
+/* Path total length ≈ 18.45 (M 4 10 L 8.5 15 L 16 6); dasharray/offset rounded
+ * up to 19 in the JSX. The draw tweens the offset from 19 (hidden) to 0 (full). */
+@keyframes checkmark-draw {
+  from {
+    stroke-dashoffset: 19;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Gold glow: layered spread ring + blur halo, peaks early (~30%) then settles
+ * to a dim ring rather than cutting to nothing. */
+@keyframes glow-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0);
+  }
+  30% {
+    box-shadow:
+      0 0 0 6px rgba(212, 175, 55, 0.55),
+      0 0 12px 4px rgba(212, 175, 55, 0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(212, 175, 55, 0.15),
+      0 0 6px 2px rgba(212, 175, 55, 0.1);
+  }
+}
+
+/* Ease the gold fill in as the tick draws; no layout shift (border-box). */
+.checkbox-circle {
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.checkbox-circle.checkbox--animating {
+  animation: glow-pulse 500ms ease-out forwards;
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+}
+
+.checkbox-circle.checkbox--animating .checkbox-check {
+  animation: checkmark-draw 300ms ease-out forwards;
+}
+
+/* Reduced motion: instant check, instant glow (the REWARD_WINDOW_MS hold timer
+ * in useQueue is unaffected, so the card still pauses briefly then exits). */
+@media (prefers-reduced-motion: reduce) {
+  .checkbox-circle.checkbox--animating,
+  .checkbox-circle.checkbox--animating .checkbox-check {
+    animation-duration: 0.01ms !important;
+  }
+}
