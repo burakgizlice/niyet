@@ -1,0 +1,49 @@
+/* Block 8: flame keyframes only. All tier sizing/glow is driven by inline
+ * styles (--flame-scale CSS var + filter) set by FireBadge — this file holds
+ * just the animations, which cannot be expressed as inline styles in React.
+ *
+ * Only the flame glyph (.flame-icon) scales/pulses; the copy text stays a fixed
+ * size so the badge never overflows narrow (375px) headers. --flame-scale is
+ * the per-tier base; the keyframes pulse around it. */
+.flame-icon {
+  display: inline-block;
+  transform-origin: center center;
+  transform: scale(var(--flame-scale, 1));
+  animation: flamePulse 2s ease-in-out infinite;
+}
+
+/* More specific than .flame-icon, so it overrides the continuous pulse for its
+ * 600ms lifetime without !important. Removed by FireBadge after ~620ms, after
+ * which flamePulse resumes. */
+.flame-icon.flame-just-incremented {
+  animation: flameIncrement 600ms ease-out;
+}
+
+@keyframes flamePulse {
+  0%,
+  100% {
+    transform: scale(var(--flame-scale, 1));
+  }
+  50% {
+    transform: scale(calc(var(--flame-scale, 1) * 1.08));
+  }
+}
+
+@keyframes flameIncrement {
+  0% {
+    transform: scale(var(--flame-scale, 1));
+  }
+  30% {
+    transform: scale(calc(var(--flame-scale, 1) * 1.22));
+  }
+  100% {
+    transform: scale(var(--flame-scale, 1));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flame-icon,
+  .flame-icon.flame-just-incremented {
+    animation: none;
+  }
+}

@@ -2,6 +2,7 @@ import React from 'react'
 import { TOKENS } from '../tokens'
 import CountSelector from './CountSelector'
 import TaskCard from './TaskCard'
+import FireBadge from './FireBadge'
 
 /** @typedef {{ id: string, text: string }} Task */
 
@@ -43,6 +44,21 @@ export default function Queue({
       }}
     >
       <div style={{ maxWidth: TOKENS.spacing.containerMaxWidth, width: '100%' }}>
+        {/* Header seam: fixed minHeight reserves space so the badge appearing /
+            growing across tiers never shifts the cards down (glow overflows
+            visually). Right-aligned to leave room for a future wordmark. */}
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            minHeight: '56px',
+            overflow: 'visible',
+            marginBottom: '8px',
+          }}
+        >
+          <FireBadge />
+        </header>
         {current !== null ? (
           <>
             <CountSelector value={showCount} onChange={setShowCount} />
