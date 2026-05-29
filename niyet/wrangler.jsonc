@@ -2,10 +2,6 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "niyet",
   "compatibility_date": "2026-05-29",
-  "workers_dev": false,
-  "routes": [
-    { "pattern": "niyet.burakgizlice.com", "custom_domain": true, "zone_name": "burakgizlice.com" }
-  ],
   "observability": {
     "enabled": true
   },
