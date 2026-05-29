@@ -18,6 +18,7 @@ import FireBadge from './FireBadge'
  *   completingIds: Set<string>,
  *   completeTask: (id: string) => void,
  *   finalizeComplete: (id: string) => void,
+ *   onAddSteps: () => void,
  * }} props
  */
 export default function Queue({
@@ -27,6 +28,7 @@ export default function Queue({
   completingIds,
   completeTask,
   finalizeComplete,
+  onAddSteps,
 }) {
   const current = queue[0] ?? null
   const visibleTasks = queue.slice(0, showCount)
@@ -110,6 +112,34 @@ export default function Queue({
             Sırada bir şey yok — bir adım ekle ya da bir zincir yükle.
           </p>
         )}
+        {/* Action bar: the '+ Ekle' affordance is the primary entry point for
+            ad-hoc task entry, so it stays visible whether the queue is full or
+            empty. Block 12 will add a 'Zincirler' button alongside it. */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginTop: '2rem',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onAddSteps}
+            style={{
+              background: TOKENS.colors.surfaceRaised,
+              color: TOKENS.colors.gold,
+              fontWeight: 600,
+              fontSize: '1rem',
+              border: `1px solid ${TOKENS.colors.gold}`,
+              borderRadius: '999px',
+              padding: '10px 24px',
+              minHeight: '44px',
+              cursor: 'pointer',
+            }}
+          >
+            + Ekle
+          </button>
+        </div>
       </div>
     </div>
   )

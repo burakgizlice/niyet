@@ -2,7 +2,7 @@ import React from 'react'
 import { playTickSound } from '../lib/audio'
 import { REWARD_WINDOW_MS } from '../constants/animation'
 
-/** @typedef {{ id: string, text: string }} Task */
+/** @typedef {{ id: string, text: string, createdAt?: number }} Task */
 
 /** @type {Task[]} */
 const SEED_TASKS = [
@@ -12,6 +12,11 @@ const SEED_TASKS = [
   { id: '4', text: 'su iç' },
   { id: '5', text: 'seccadenin önünde dur' },
 ]
+
+// Block 9: the queue now starts empty — users add their own steps via AddSteps.
+// Flip to true to seed demo tasks for manual testing (off in normal use, so a
+// page reload yields an empty queue until Block 14 adds localStorage).
+const DEV_SEED = false
 
 /**
  * Block 4: real queue state + the split start/commit completion actions.
@@ -29,7 +34,7 @@ const SEED_TASKS = [
  * @param {{ addDone: (item: { id: string, text: string, completedAt: number }) => void }} deps
  */
 export function useQueue({ addDone } = {}) {
-  const [queue, setQueue] = React.useState(SEED_TASKS)
+  const [queue, setQueue] = React.useState(DEV_SEED ? SEED_TASKS : [])
   const [showCount, setShowCount] = React.useState(1)
   const [completingIds, setCompletingIds] = React.useState(() => new Set())
 
@@ -102,6 +107,19 @@ export function useQueue({ addDone } = {}) {
     [addDone],
   )
 
+  // Block 9: canonical append contract. Accepts pre-split, pre-trimmed,
+  // non-empty strings (the caller does the splitting). Chains-load (Block 12)
+  // and sync (Block 18) call this same function with a string[], so it must
+  // stay stable. One setQueue call keeps the appended batch to a single render.
+  const appendSteps = React.useCallback((lines) => {
+    const newItems = lines.map((text) => ({
+      id: crypto.randomUUID(),
+      text,
+      createdAt: Date.now(),
+    }))
+    setQueue((prev) => [...prev, ...newItems])
+  }, [])
+
   return {
     queue,
     showCount,
@@ -109,5 +127,6 @@ export function useQueue({ addDone } = {}) {
     completingIds,
     completeTask,
     finalizeComplete,
+    appendSteps,
   }
 }

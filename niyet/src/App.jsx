@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Queue from './components/Queue'
+import AddSteps from './components/AddSteps'
 import CelebrationBurst from './components/CelebrationBurst'
 import { useDone } from './hooks/useDone'
 import { useQueue } from './hooks/useQueue'
@@ -13,6 +14,12 @@ function App() {
   const { done, addDone } = useDone()
   const queueApi = useQueue({ addDone })
   const { incrementStreak } = useStreak()
+
+  // View router (Block 9). Valid views: 'main' | 'add' | 'chains' | 'chain-edit'
+  // | 'auth'. Only 'main' and 'add' are rendered here; the other three are
+  // reserved for later blocks (12/13 chains, 17 auth). Navigation state is
+  // intentionally not persisted — a reload resets to 'main'.
+  const [view, setView] = useState('main')
 
   // Block 7 (burst) + Block 8 (streak): `done.length` grows only on a committed
   // completion, so a rising-edge guard ensures we react only on real completions
@@ -44,9 +51,21 @@ function App() {
     }
   }, [])
 
+  if (view === 'add') {
+    return (
+      <AddSteps
+        onBack={() => setView('main')}
+        onSubmit={(lines) => {
+          queueApi.appendSteps(lines)
+          setView('main')
+        }}
+      />
+    )
+  }
+
   return (
     <>
-      <Queue {...queueApi} />
+      <Queue {...queueApi} onAddSteps={() => setView('add')} />
       <CelebrationBurst active={burstActive} onDone={() => setBurstActive(false)} />
     </>
   )
