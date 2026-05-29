@@ -91,7 +91,11 @@ body::before {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* Stretch, not center: each screen is a full-bleed wrapper that centers its
+     own maxWidth content block. Centering here would instead shrink the wrapper
+     to its content's intrinsic width, collapsing the column to far less than the
+     viewport on mobile. */
+  align-items: stretch;
   justify-content: center;
 }
 
