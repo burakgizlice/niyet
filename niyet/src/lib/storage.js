@@ -12,12 +12,16 @@ import { DEFAULT_CHAINS } from '../data/defaultChains'
 /** Bumped when the on-disk shape changes; drives runMigrations(). */
 export const STORAGE_VERSION = 1
 
-const KEYS = {
+// Exported (Block 18) so lib/sync.js shares the exact key strings — the pending
+// queue and seed guard are sync-only keys, the rest are the Block 14 data store.
+export const KEYS = {
   VERSION: 'niyet_storage_version',
   QUEUE: 'niyet_queue',
   DONE: 'niyet_done',
   CHAINS: 'niyet_chains',
   SHOW_COUNT: 'niyet_show_count',
+  PENDING: 'niyet_pending',
+  SEEDED: 'niyet_seeded_uid',
 }
 
 const VALID_SHOW_COUNTS = [1, 2, 3, 5]
@@ -172,4 +176,34 @@ export function seedDefaultChainsIfAbsent() {
   const existing = readChains()
   if (existing !== null && existing.length > 0) return
   writeChains([...DEFAULT_CHAINS])
+}
+
+/**
+ * Block 18: snapshot the whole data store for sync.mergeOnLogin. Returns the
+ * four data slices in their localStorage shapes (done uses epoch-ms completedAt;
+ * queue items carry no created_at) — sync.js does the Supabase shape conversion.
+ * chains falls back to [] (not null) since by merge time defaults are seeded.
+ * @returns {{ queue: StoredQueueItem[], done: StoredDoneItem[], chains: import('../data/defaultChains').Chain[], show_count: number }}
+ */
+export function getAll() {
+  return {
+    queue: readQueue(),
+    done: readDone(),
+    chains: readChains() ?? [],
+    show_count: readShowCount(),
+  }
+}
+
+/**
+ * Block 18: atomically replace all four data slices with the merged result of a
+ * login. Reuses the per-slice writers so the position-from-array-order contract
+ * (writeQueue/writeChains) and show_count validation stay enforced. Each field
+ * is written only when provided, so a partial merged object never blanks a slice.
+ * @param {{ queue?: StoredQueueItem[], done?: StoredDoneItem[], chains?: import('../data/defaultChains').Chain[], show_count?: number }} state
+ */
+export function setAll({ queue, done, chains, show_count } = {}) {
+  if (queue !== undefined) writeQueue(queue)
+  if (done !== undefined) writeDone(done)
+  if (chains !== undefined) writeChains(chains)
+  if (show_count !== undefined) writeShowCount(show_count)
 }

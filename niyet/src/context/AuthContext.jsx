@@ -54,10 +54,11 @@ export function AuthProvider({ children }) {
 
       if (event === 'SIGNED_IN') {
         clearAuthParamsFromUrl()
-        // TODO Block 18: on SIGNED_IN, call sync.mergeOnLogin(nextSession.user.id)
-        // to merge local (anonymous) data into the account. The profiles row is
-        // already created by the handle_new_user DB trigger from Block 16 — neither
-        // Block 17 nor Block 18 upserts it manually (C3). This is the merge handoff.
+        // Block 18: the merge-on-login itself runs in App.jsx, keyed off the
+        // user.id rising edge — App owns the queue/done/chains hooks whose state
+        // mergeOnLogin hydrates, so it lives there rather than in this provider
+        // (C4). The profiles row is created by the handle_new_user DB trigger
+        // (C3); neither block upserts it manually.
       }
     })
 

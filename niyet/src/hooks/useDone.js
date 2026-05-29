@@ -1,5 +1,7 @@
 import React from 'react'
 import { readDone, writeDone, clearDone as clearDoneStorage } from '../lib/storage'
+import { useAuth } from './useAuth'
+import { syncDoneAdd, syncDoneClear } from '../lib/sync'
 
 /** @typedef {{ id: string, text: string, completedAt: number }} DoneItem */
 
@@ -21,6 +23,13 @@ export function useDone() {
     doneRef.current = done
   }, [done])
 
+  // Block 18: current user id (null = anon) in a ref so callbacks stay stable.
+  const { user } = useAuth()
+  const userIdRef = React.useRef(user?.id ?? null)
+  React.useEffect(() => {
+    userIdRef.current = user?.id ?? null
+  }, [user])
+
   const addDone = React.useCallback((item) => {
     const entry = {
       id: item.id,
@@ -30,12 +39,19 @@ export function useDone() {
     const next = [...doneRef.current, entry]
     writeDone(next)
     setDone(next)
+    syncDoneAdd(userIdRef.current, entry)
   }, [])
 
   const clearDone = React.useCallback(() => {
     clearDoneStorage()
     setDone([])
+    syncDoneClear(userIdRef.current)
   }, [])
 
-  return { done, addDone, clearDone }
+  // Block 18: replace the done log wholesale with mergeOnLogin's merged result.
+  const hydrate = React.useCallback((nextDone) => {
+    setDone(nextDone)
+  }, [])
+
+  return { done, addDone, clearDone, hydrate }
 }

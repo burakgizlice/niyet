@@ -13,19 +13,21 @@ import { useAuth } from './hooks/useAuth'
 import { unlockAudio } from './lib/audio'
 import { TOKENS } from './tokens'
 import { readShowCount, writeShowCount } from './lib/storage'
+import { mergeOnLogin, bootstrapOfflineListener } from './lib/sync'
 
 function App() {
   // `done` / `clearDone` are held here for Blocks 8 (fire streak) and 10 (done
   // log). `done` is read here as the burst trigger source; addDone is wired into
   // useQueue so the queue commits completed tasks into the shared done store.
-  const { done, addDone, clearDone } = useDone()
+  const { done, addDone, clearDone, hydrate: hydrateDone } = useDone()
   const queueApi = useQueue({ addDone })
   const { incrementStreak, resetStreak } = useStreak()
 
   // useChains is stateful (Block 13 CRUD), so it lives here as a single instance
   // and is prop-drilled to Chains/ChainEdit — calling it in each component would
   // fork the collection. selectedChain carries the edit target: null = create.
-  const { chains, createChain, updateChain, deleteChain, resetChain } = useChains()
+  const { chains, createChain, updateChain, deleteChain, resetChain, hydrate: hydrateChains } =
+    useChains()
   const [selectedChain, setSelectedChain] = useState(null)
 
   // View router (Block 9). Valid views: 'main' | 'add' | 'chains' | 'chain-edit'
@@ -40,7 +42,7 @@ function App() {
   // visibly when sign-in lands in another tab and Supabase broadcasts SIGNED_IN
   // across tabs. Syncing local view state to that external auth event is exactly
   // what an effect is for, hence the targeted rule suppression.
-  const { loading, session, signInWithMagicLink, signInWithGoogle } = useAuth()
+  const { loading, session, user, signInWithMagicLink, signInWithGoogle } = useAuth()
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing view to cross-tab auth state
     if (session && view === 'auth') setView('main')
@@ -96,6 +98,40 @@ function App() {
       window.removeEventListener('mousedown', handler)
     }
   }, [])
+
+  // Block 18: merge-on-login. userIdRef always tracks the current uid for the
+  // offline listener's getUserId closure. mergeStartedRef is a synchronous
+  // once-per-uid guard so mergeOnLogin runs exactly once per sign-in despite
+  // StrictMode's dev double-mount and cross-tab SIGNED_IN rebroadcasts; it is
+  // set before the async call (not in .then) so the second mount sees it and
+  // skips, while the first call's hydrate still lands. Reset on sign-out.
+  const userIdRef = useRef(null)
+  const mergeStartedRef = useRef(null)
+  useEffect(() => {
+    bootstrapOfflineListener(() => userIdRef.current)
+  }, [])
+
+  useEffect(() => {
+    const uid = user?.id ?? null
+    userIdRef.current = uid
+    if (!uid) {
+      mergeStartedRef.current = null
+      return
+    }
+    if (mergeStartedRef.current === uid) return
+    mergeStartedRef.current = uid
+    mergeOnLogin(user).then((merged) => {
+      queueApi.hydrate(merged.queue)
+      hydrateDone(merged.done)
+      hydrateChains(merged.chains)
+      setShowCount(merged.show_count)
+      // The merged done log grows React state without a real completion, so
+      // advance the rising-edge high-water mark to suppress a spurious streak
+      // increment / celebration burst on login.
+      prevDoneLength.current = merged.done.length
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed off user.id only; hydrate fns are stable
+  }, [user?.id])
 
   // Block 17: hold the first paint until Supabase has restored any persisted
   // session, so a signed-in reload never flashes the anonymous main view.
