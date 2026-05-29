@@ -9,9 +9,9 @@ import { DEFAULT_CHAINS } from '../data/defaultChains'
  * App.jsx) and prop-drill the result. Calling it in two places would create two
  * independent collections.
  *
- * is_default chains are editable (updateChain/resetChain) but never deletable —
- * deleteChain guards against them. resetChain restores a default to its seed
- * values, keyed by the fixed UUID shared across Blocks 12/14/18.
+ * Any chain can be deleted, defaults included. resetChain still restores a
+ * default to its seed values (keyed by the fixed UUID shared across Blocks
+ * 12/14/18) for users who edited a default but want it back rather than gone.
  *
  * TODO Block 14: persist mutations through lib/storage (localStorage source of
  * truth). Each mutation below is where the storage write will hook in.
@@ -48,11 +48,7 @@ export function useChains() {
   }, [])
 
   const deleteChain = React.useCallback((id) => {
-    setChains((prev) => {
-      const target = prev.find((c) => c.id === id)
-      if (!target || target.is_default) return prev // defaults are protected (use resetChain)
-      return prev.filter((c) => c.id !== id)
-    })
+    setChains((prev) => prev.filter((c) => c.id !== id))
   }, [])
 
   const resetChain = React.useCallback((id) => {

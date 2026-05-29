@@ -90,6 +90,7 @@ function App() {
         setView={setView}
         setSelectedChain={setSelectedChain}
         appendSteps={queueApi.appendSteps}
+        deleteChain={deleteChain}
       />
     )
   }

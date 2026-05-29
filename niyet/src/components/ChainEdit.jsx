@@ -26,6 +26,15 @@ const labelStyle = {
 
 const errorStyle = { color: '#ef4444', fontSize: '0.8rem', margin: '4px 2px 0' }
 
+// Curated palette so users tap instead of hunting for an emoji to paste. Leads
+// with the 7 default-chain emoji (so edit mode highlights a match) then common
+// routine/habit picks. The free-text field below remains for anything else.
+const EMOJI_PALETTE = [
+  '🕌', '🔬', '☀️', '💧', '🌙', '🧹', '☕',
+  '🏃', '🧘', '📚', '📝', '🎯', '💪', '🌱',
+  '🧠', '⏰', '🙏', '🥗', '💊', '🚿', '🦷', '🛏️',
+]
+
 /**
  * Block 13: create/edit form for a chain. `chain === null` is create mode;
  * a chain object is edit mode. Local-only state (the form never reads the hook
@@ -33,8 +42,8 @@ const errorStyle = { color: '#ef4444', fontSize: '0.8rem', margin: '4px 2px 0' }
  * mutable fields; App decides create vs update. Delete/reset are surfaced as
  * onDelete/onReset so the destructive logic stays in the hook.
  *
- * is_default chains: editable, no delete — a 'Sıfırla' button restores seed
- * values. User chains: an inline 'Sil' → confirmation strip, no modal (spec Q2).
+ * Any chain can be deleted via an inline 'Sil' → confirmation strip (no modal).
+ * is_default chains additionally get a 'Sıfırla' button that restores seed values.
  *
  * @param {{
  *   chain: import('../data/defaultChains').Chain | null,
@@ -147,8 +156,42 @@ export default function ChainEdit({ chain, onSave, onCancel, onDelete, onReset }
         />
         {errors.name && <p style={errorStyle}>{errors.name}</p>}
 
-        <label style={labelStyle} htmlFor="chain-emoji">
-          Emoji
+        <label style={labelStyle}>Emoji</label>
+        <div
+          role="radiogroup"
+          aria-label="Emoji seç"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
+        >
+          {EMOJI_PALETTE.map((option) => {
+            const selected = emoji === option
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setEmoji(option)}
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                  lineHeight: 1,
+                  background: selected ? TOKENS.colors.surfaceRaised : TOKENS.colors.surface,
+                  border: `2px solid ${selected ? TOKENS.colors.gold : TOKENS.colors.emeraldDim}`,
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                }}
+              >
+                {option}
+              </button>
+            )
+          })}
+        </div>
+        <label style={{ ...labelStyle, margin: '10px 0 6px', fontSize: '0.8rem' }} htmlFor="chain-emoji">
+          veya kendin yaz
         </label>
         <input
           id="chain-emoji"
@@ -193,11 +236,12 @@ export default function ChainEdit({ chain, onSave, onCancel, onDelete, onReset }
           Kaydet
         </button>
 
-        {/* Destructive / reset zone. Defaults can't be deleted (spec Q1) — they
-            get Sıfırla. User chains get an inline two-step confirm (spec Q2). */}
-        <div style={{ marginTop: '24px' }}>
-          {isDefault ? (
-            <>
+        {/* Reset + destructive zone. Defaults additionally get Sıfırla to restore
+            seed values; any chain (defaults included) can be deleted via the
+            inline two-step confirm. */}
+        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {isDefault && (
+            <div>
               <button
                 type="button"
                 onClick={handleReset}
@@ -220,12 +264,15 @@ export default function ChainEdit({ chain, onSave, onCancel, onDelete, onReset }
                   Varsayılana döndürüldü
                 </p>
               )}
-            </>
-          ) : chain && !deleteConfirming ? (
+            </div>
+          )}
+
+          {chain && !deleteConfirming && (
             <button
               type="button"
               onClick={() => setDeleteConfirming(true)}
               style={{
+                alignSelf: 'flex-start',
                 background: 'transparent',
                 color: '#ef4444',
                 fontSize: '0.9rem',
@@ -239,7 +286,9 @@ export default function ChainEdit({ chain, onSave, onCancel, onDelete, onReset }
             >
               Sil
             </button>
-          ) : chain && deleteConfirming ? (
+          )}
+
+          {chain && deleteConfirming && (
             <div
               style={{
                 background: 'rgba(239,68,68,0.1)',
@@ -289,7 +338,7 @@ export default function ChainEdit({ chain, onSave, onCancel, onDelete, onReset }
                 </button>
               </div>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

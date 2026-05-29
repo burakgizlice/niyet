@@ -1,10 +1,11 @@
+import { useState } from 'react'
 import { TOKENS } from '../tokens'
 
 /**
  * Block 12: read-only chains list (tap to load). Block 13: adds an edit pencil
- * per row and a 'Yeni zincir' entry point. The list stays calm — no delete in
- * the row (delete lives inside ChainEdit, spec Q2/13.5) to avoid accidental
- * destructive taps in a packed mobile list.
+ * and a delete (🗑) action per row plus a 'Yeni zincir' entry point. Row delete
+ * uses an inline two-step confirm (🗑 → ✓/✕) so a packed mobile list can't
+ * delete on a single accidental tap. Delete also lives inside ChainEdit.
  *
  * Receives `chains` + navigation setters as props: App owns the single useChains
  * instance, so this component must not call the hook itself.
@@ -14,9 +15,14 @@ import { TOKENS } from '../tokens'
  *   setView: (view: string) => void,
  *   setSelectedChain: (chain: import('../data/defaultChains').Chain | null) => void,
  *   appendSteps: (steps: string[]) => void,
+ *   deleteChain: (id: string) => void,
  * }} props
  */
-export default function Chains({ chains, setView, setSelectedChain, appendSteps }) {
+export default function Chains({ chains, setView, setSelectedChain, appendSteps, deleteChain }) {
+  // Which row is showing its inline delete confirm. Null = none. Keeps the
+  // destructive tap two-step so a packed mobile list can't delete on one touch.
+  const [confirmingId, setConfirmingId] = useState(null)
+
   const loadChain = (chain) => {
     appendSteps(chain.steps)
     setView('main')
@@ -129,23 +135,82 @@ export default function Chains({ chains, setView, setSelectedChain, appendSteps 
                   </span>
                   <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>{chain.name}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => editChain(chain)}
-                  aria-label="Düzenle"
-                  style={{
-                    flexShrink: 0,
-                    width: '52px',
-                    background: 'transparent',
-                    color: TOKENS.colors.textMuted,
-                    border: 'none',
-                    borderLeft: `1px solid ${TOKENS.colors.emeraldDim}`,
-                    fontSize: '1.1rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  ✎
-                </button>
+                {confirmingId === chain.id ? (
+                  <div style={{ display: 'flex', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteChain(chain.id)
+                        setConfirmingId(null)
+                      }}
+                      aria-label="Silmeyi onayla"
+                      style={{
+                        width: '52px',
+                        background: '#ef4444',
+                        color: '#fff',
+                        border: 'none',
+                        fontSize: '1.1rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(null)}
+                      aria-label="Vazgeç"
+                      style={{
+                        width: '52px',
+                        background: 'transparent',
+                        color: TOKENS.colors.textMuted,
+                        border: 'none',
+                        borderLeft: `1px solid ${TOKENS.colors.emeraldDim}`,
+                        fontSize: '1.1rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => editChain(chain)}
+                      aria-label="Düzenle"
+                      style={{
+                        flexShrink: 0,
+                        width: '52px',
+                        background: 'transparent',
+                        color: TOKENS.colors.textMuted,
+                        border: 'none',
+                        borderLeft: `1px solid ${TOKENS.colors.emeraldDim}`,
+                        fontSize: '1.1rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(chain.id)}
+                      aria-label="Sil"
+                      style={{
+                        flexShrink: 0,
+                        width: '52px',
+                        background: 'transparent',
+                        color: '#ef4444',
+                        border: 'none',
+                        borderLeft: `1px solid ${TOKENS.colors.emeraldDim}`,
+                        fontSize: '1.1rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🗑
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>
