@@ -3,12 +3,15 @@ import Queue from './components/Queue'
 import AddSteps from './components/AddSteps'
 import Chains from './components/Chains'
 import ChainEdit from './components/ChainEdit'
+import AuthView from './components/AuthView'
 import CelebrationBurst from './components/CelebrationBurst'
 import { useDone } from './hooks/useDone'
 import { useQueue } from './hooks/useQueue'
 import { useChains } from './hooks/useChains'
 import useStreak from './hooks/useStreak'
+import { useAuth } from './hooks/useAuth'
 import { unlockAudio } from './lib/audio'
+import { TOKENS } from './tokens'
 import { readShowCount, writeShowCount } from './lib/storage'
 
 function App() {
@@ -30,6 +33,18 @@ function App() {
   // reserved for later blocks (12/13 chains, 17 auth). Navigation state is
   // intentionally not persisted — a reload resets to 'main'.
   const [view, setView] = useState('main')
+
+  // Block 17 (C4): App consumes auth state from context — it does not own it.
+  // `loading` gates the initial loading screen; `session` lets the app leave the
+  // auth view once sign-in completes so the user is never stranded there — most
+  // visibly when sign-in lands in another tab and Supabase broadcasts SIGNED_IN
+  // across tabs. Syncing local view state to that external auth event is exactly
+  // what an effect is for, hence the targeted rule suppression.
+  const { loading, session, signInWithMagicLink, signInWithGoogle } = useAuth()
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing view to cross-tab auth state
+    if (session && view === 'auth') setView('main')
+  }, [session, view])
 
   // Block 14 (decision C7): show_count lives here, not in useQueue/Queue, so
   // Block 18 can sync profiles.show_count from App without reaching into Queue.
@@ -81,6 +96,22 @@ function App() {
       window.removeEventListener('mousedown', handler)
     }
   }, [])
+
+  // Block 17: hold the first paint until Supabase has restored any persisted
+  // session, so a signed-in reload never flashes the anonymous main view.
+  if (loading) {
+    return <LoadingScreen />
+  }
+
+  if (view === 'auth') {
+    return (
+      <AuthView
+        onBack={() => setView('main')}
+        signInWithMagicLink={signInWithMagicLink}
+        signInWithGoogle={signInWithGoogle}
+      />
+    )
+  }
 
   if (view === 'add') {
     return (
@@ -136,9 +167,41 @@ function App() {
         onTemizle={handleTemizle}
         onAddSteps={() => setView('add')}
         onShowChains={() => setView('chains')}
+        onOpenAuth={() => setView('auth')}
       />
       <CelebrationBurst active={burstActive} onDone={() => setBurstActive(false)} />
     </>
+  )
+}
+
+// Full-screen mount state shown while the persisted Supabase session is being
+// restored. The Arabic نية wordmark breathes via a slow opacity pulse — no
+// spinner, no layout jank, consistent with the emerald/calligraphy theme.
+function LoadingScreen() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: TOKENS.colors.bg,
+      }}
+    >
+      <style>{`@keyframes niyetWordmarkPulse { 0%,100% { opacity: 0.35 } 50% { opacity: 1 } }`}</style>
+      <span
+        lang="ar"
+        dir="rtl"
+        style={{
+          color: TOKENS.colors.gold,
+          fontSize: '3.5rem',
+          fontWeight: 600,
+          animation: 'niyetWordmarkPulse 1.8s ease-in-out infinite',
+        }}
+      >
+        نية
+      </span>
+    </div>
   )
 }
 

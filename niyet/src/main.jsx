@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { AuthProvider } from './context/AuthContext'
 import { StreakProvider } from './context/StreakContext'
 import { runMigrations } from './lib/storage'
 import { initPWA } from './lib/pwa'
@@ -15,8 +16,10 @@ initPWA()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <StreakProvider>
-      <App />
-    </StreakProvider>
+    <AuthProvider>
+      <StreakProvider>
+        <App />
+      </StreakProvider>
+    </AuthProvider>
   </StrictMode>,
 )

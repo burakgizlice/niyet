@@ -2,6 +2,7 @@ import { TOKENS } from '../tokens'
 import CountSelector from './CountSelector'
 import TaskCard from './TaskCard'
 import FireBadge from './FireBadge'
+import AuthHeader from './AuthHeader'
 import DoneLog from './DoneLog'
 import EmptyState from './EmptyState'
 
@@ -23,6 +24,7 @@ import EmptyState from './EmptyState'
  *   onTemizle: () => void,
  *   onAddSteps: () => void,
  *   onShowChains: () => void,
+ *   onOpenAuth: () => void,
  * }} props
  */
 export default function Queue({
@@ -36,6 +38,7 @@ export default function Queue({
   onTemizle,
   onAddSteps,
   onShowChains,
+  onOpenAuth,
 }) {
   const current = queue[0] ?? null
   const visibleTasks = queue.slice(0, showCount)
@@ -55,17 +58,20 @@ export default function Queue({
       <div style={{ maxWidth: TOKENS.spacing.containerMaxWidth, width: '100%' }}>
         {/* Header seam: fixed minHeight reserves space so the badge appearing /
             growing across tiers never shifts the cards down (glow overflows
-            visually). Right-aligned to leave room for a future wordmark. */}
+            visually). space-between pins the FireBadge to the right edge so the
+            auth affordance on the left can change width (Eşitle ↔ avatar pill)
+            without nudging the streak (Block 17, step 17.7). */}
         <header
           style={{
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
             alignItems: 'center',
             minHeight: '56px',
             overflow: 'visible',
             marginBottom: '8px',
           }}
         >
+          <AuthHeader onOpenAuth={onOpenAuth} />
           <FireBadge />
         </header>
         {current !== null ? (

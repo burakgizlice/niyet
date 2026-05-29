@@ -12,6 +12,7 @@ export const TOKENS = {
     textPrimary: '#f0fdf4',
     textMuted: '#6b9e7a',
     textDim: '#3d6b4f',
+    error: '#e74c3c',
   },
   typography: {
     taskFontSize: '2rem',
