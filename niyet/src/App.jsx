@@ -11,9 +11,9 @@ function App() {
   // `done` / `clearDone` are held here for Blocks 8 (fire streak) and 10 (done
   // log). `done` is read here as the burst trigger source; addDone is wired into
   // useQueue so the queue commits completed tasks into the shared done store.
-  const { done, addDone } = useDone()
+  const { done, addDone, clearDone } = useDone()
   const queueApi = useQueue({ addDone })
-  const { incrementStreak } = useStreak()
+  const { incrementStreak, resetStreak } = useStreak()
 
   // View router (Block 9). Valid views: 'main' | 'add' | 'chains' | 'chain-edit'
   // | 'auth'. Only 'main' and 'add' are rendered here; the other three are
@@ -38,6 +38,17 @@ function App() {
       setBurstActive(true)
     }
   }, [done.length, queueApi.queue.length, incrementStreak])
+
+  // Block 10: Temizle clears the done log and resets the streak in one gesture.
+  // Composed here (not inside a hook) because resetStreak is only reachable
+  // through useStreak's return — see spec Q2. prevDoneLength is rewound to 0 so
+  // the rising-edge guard above still fires on the next completion (otherwise the
+  // stale high-water mark would swallow the first post-clear increment).
+  const handleTemizle = () => {
+    clearDone()
+    resetStreak()
+    prevDoneLength.current = 0
+  }
 
   // Unlock the AudioContext on the first user gesture (iOS Safari autoplay
   // policy). One-time per event; cleaned up on unmount.
@@ -65,7 +76,12 @@ function App() {
 
   return (
     <>
-      <Queue {...queueApi} onAddSteps={() => setView('add')} />
+      <Queue
+        {...queueApi}
+        doneItems={done}
+        onTemizle={handleTemizle}
+        onAddSteps={() => setView('add')}
+      />
       <CelebrationBurst active={burstActive} onDone={() => setBurstActive(false)} />
     </>
   )

@@ -1,8 +1,9 @@
-import React from 'react'
 import { TOKENS } from '../tokens'
 import CountSelector from './CountSelector'
 import TaskCard from './TaskCard'
 import FireBadge from './FireBadge'
+import DoneLog from './DoneLog'
+import EmptyState from './EmptyState'
 
 /** @typedef {{ id: string, text: string }} Task */
 
@@ -18,6 +19,8 @@ import FireBadge from './FireBadge'
  *   completingIds: Set<string>,
  *   completeTask: (id: string) => void,
  *   finalizeComplete: (id: string) => void,
+ *   doneItems: { id: string, text: string, completedAt: number }[],
+ *   onTemizle: () => void,
  *   onAddSteps: () => void,
  * }} props
  */
@@ -28,6 +31,8 @@ export default function Queue({
   completingIds,
   completeTask,
   finalizeComplete,
+  doneItems,
+  onTemizle,
   onAddSteps,
 }) {
   const current = queue[0] ?? null
@@ -101,16 +106,7 @@ export default function Queue({
             )}
           </>
         ) : (
-          <p
-            style={{
-              color: TOKENS.colors.textMuted,
-              fontSize: TOKENS.typography.uiFontSize,
-              textAlign: 'center',
-              paddingTop: '4rem',
-            }}
-          >
-            Sırada bir şey yok — bir adım ekle ya da bir zincir yükle.
-          </p>
+          <EmptyState hasDone={doneItems.length > 0} />
         )}
         {/* Action bar: the '+ Ekle' affordance is the primary entry point for
             ad-hoc task entry, so it stays visible whether the queue is full or
@@ -140,6 +136,7 @@ export default function Queue({
             + Ekle
           </button>
         </div>
+        <DoneLog doneItems={doneItems} onTemizle={onTemizle} />
       </div>
     </div>
   )
