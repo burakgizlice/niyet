@@ -9,6 +9,7 @@ import { useQueue } from './hooks/useQueue'
 import { useChains } from './hooks/useChains'
 import useStreak from './hooks/useStreak'
 import { unlockAudio } from './lib/audio'
+import { readShowCount, writeShowCount } from './lib/storage'
 
 function App() {
   // `done` / `clearDone` are held here for Blocks 8 (fire streak) and 10 (done
@@ -29,6 +30,16 @@ function App() {
   // reserved for later blocks (12/13 chains, 17 auth). Navigation state is
   // intentionally not persisted — a reload resets to 'main'.
   const [view, setView] = useState('main')
+
+  // Block 14 (decision C7): show_count lives here, not in useQueue/Queue, so
+  // Block 18 can sync profiles.show_count from App without reaching into Queue.
+  // The handler pairs the persist with the state update (no useEffect, which
+  // would fire spuriously under StrictMode's double render).
+  const [showCount, setShowCount] = useState(() => readShowCount())
+  const handleCountChange = (n) => {
+    writeShowCount(n)
+    setShowCount(n)
+  }
 
   // Block 7 (burst) + Block 8 (streak): `done.length` grows only on a committed
   // completion, so a rising-edge guard ensures we react only on real completions
@@ -119,6 +130,8 @@ function App() {
     <>
       <Queue
         {...queueApi}
+        showCount={showCount}
+        setShowCount={handleCountChange}
         doneItems={done}
         onTemizle={handleTemizle}
         onAddSteps={() => setView('add')}

@@ -1,22 +1,9 @@
 import React from 'react'
 import { playTickSound } from '../lib/audio'
 import { REWARD_WINDOW_MS } from '../constants/animation'
+import { readQueue, writeQueue } from '../lib/storage'
 
-/** @typedef {{ id: string, text: string, createdAt?: number }} Task */
-
-/** @type {Task[]} */
-const SEED_TASKS = [
-  { id: '1', text: 'banyoya git (abdest için)' },
-  { id: '2', text: 'abdest al' },
-  { id: '3', text: 'odana su getir' },
-  { id: '4', text: 'su iç' },
-  { id: '5', text: 'seccadenin önünde dur' },
-]
-
-// Block 9: the queue now starts empty — users add their own steps via AddSteps.
-// Flip to true to seed demo tasks for manual testing (off in normal use, so a
-// page reload yields an empty queue until Block 14 adds localStorage).
-const DEV_SEED = false
+/** @typedef {{ id: string, text: string }} Task */
 
 /**
  * Block 4: real queue state + the split start/commit completion actions.
@@ -29,13 +16,15 @@ const DEV_SEED = false
  * `addDone` is injected from App.jsx (wired to useDone) so this hook stays
  * decoupled from the done store.
  *
- * TODO Block 14: persist queue + showCount over a localStorage source-of-truth layer.
+ * Block 14: the queue is the localStorage source of truth. State is read once
+ * via a lazy initialiser (readQueue) and every mutation is persisted with a
+ * paired writeQueue in the same synchronous call — never via an effect — so
+ * storage can't drift from state. (showCount moved to App.jsx, see decision C7.)
  *
  * @param {{ addDone: (item: { id: string, text: string, completedAt: number }) => void }} deps
  */
 export function useQueue({ addDone } = {}) {
-  const [queue, setQueue] = React.useState(DEV_SEED ? SEED_TASKS : [])
-  const [showCount, setShowCount] = React.useState(1)
+  const [queue, setQueue] = React.useState(() => readQueue())
   const [completingIds, setCompletingIds] = React.useState(() => new Set())
 
   // Mirror of queue for reads inside finalizeComplete, so addDone (a side effect)
@@ -96,7 +85,9 @@ export function useQueue({ addDone } = {}) {
       const task = queueRef.current.find((t) => t.id === id)
       if (!task) return // already removed -> idempotent
       addDone?.({ id: task.id, text: task.text, completedAt: Date.now() })
-      setQueue((q) => q.filter((t) => t.id !== id))
+      const nextQueue = queueRef.current.filter((t) => t.id !== id)
+      writeQueue(nextQueue)
+      setQueue(nextQueue)
       setCompletingIds((prev) => {
         if (!prev.has(id)) return prev
         const next = new Set(prev)
@@ -112,18 +103,14 @@ export function useQueue({ addDone } = {}) {
   // and sync (Block 18) call this same function with a string[], so it must
   // stay stable. One setQueue call keeps the appended batch to a single render.
   const appendSteps = React.useCallback((lines) => {
-    const newItems = lines.map((text) => ({
-      id: crypto.randomUUID(),
-      text,
-      createdAt: Date.now(),
-    }))
-    setQueue((prev) => [...prev, ...newItems])
+    const newItems = lines.map((text) => ({ id: crypto.randomUUID(), text }))
+    const nextQueue = [...queueRef.current, ...newItems]
+    writeQueue(nextQueue)
+    setQueue(nextQueue)
   }, [])
 
   return {
     queue,
-    showCount,
-    setShowCount,
     completingIds,
     completeTask,
     finalizeComplete,
