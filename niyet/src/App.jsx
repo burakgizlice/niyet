@@ -4,6 +4,7 @@ import AddSteps from './components/AddSteps'
 import Chains from './components/Chains'
 import ChainEdit from './components/ChainEdit'
 import AuthView from './components/AuthView'
+import NiyetMark from './components/NiyetMark'
 import { useDone } from './hooks/useDone'
 import { useQueue } from './hooks/useQueue'
 import { useChains } from './hooks/useChains'
@@ -12,7 +13,7 @@ import { useAuth } from './hooks/useAuth'
 import { unlockAudio } from './lib/audio'
 import { TOKENS } from './tokens'
 import { readShowCount, writeShowCount } from './lib/storage'
-import { mergeOnLogin, bootstrapOfflineListener } from './lib/sync'
+import { mergeOnLogin, bootstrapOfflineListener, refresh } from './lib/sync'
 
 function App() {
   // `done` / `clearDone` are held here for Blocks 8 (fire streak) and 10 (done
@@ -56,6 +57,13 @@ function App() {
     writeShowCount(n)
     setShowCount(n)
   }
+
+  // Block 19: manual refresh state. `refreshing` drives the themed indicator
+  // (button + pull-to-refresh); refreshingRef is the synchronous re-entry guard
+  // (the touch path has no DOM `disabled`, so two fast gestures could otherwise
+  // both pass a state-only check before the first re-render commits).
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshingRef = useRef(false)
 
   // Block 8 (streak): `done.length` grows only on a committed completion, so a
   // rising-edge guard ensures we react only on real completions (never on
@@ -105,6 +113,17 @@ function App() {
     bootstrapOfflineListener(() => userIdRef.current)
   }, [])
 
+  // Push a merged state snapshot into React. Shared by the login merge and the
+  // Block 19 manual refresh. Advancing prevDoneLength to the merged length keeps
+  // the merged done log from tripping the rising-edge streak guard / burst.
+  const hydrateMerged = (merged) => {
+    queueApi.hydrate(merged.queue)
+    hydrateDone(merged.done)
+    hydrateChains(merged.chains)
+    setShowCount(merged.show_count)
+    prevDoneLength.current = merged.done.length
+  }
+
   useEffect(() => {
     const uid = user?.id ?? null
     userIdRef.current = uid
@@ -114,18 +133,30 @@ function App() {
     }
     if (mergeStartedRef.current === uid) return
     mergeStartedRef.current = uid
-    mergeOnLogin(user).then((merged) => {
-      queueApi.hydrate(merged.queue)
-      hydrateDone(merged.done)
-      hydrateChains(merged.chains)
-      setShowCount(merged.show_count)
-      // The merged done log grows React state without a real completion, so
-      // advance the rising-edge high-water mark to suppress a spurious streak
-      // increment / celebration burst on login.
-      prevDoneLength.current = merged.done.length
-    })
+    mergeOnLogin(user).then(hydrateMerged)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed off user.id only; hydrate fns are stable
   }, [user?.id])
+
+  // Block 19: pull the latest synced data on demand (desktop button / mobile
+  // pull-to-refresh). flushPending → mergeOnLogin happens inside refresh(); a
+  // ~500ms floor keeps the themed mark from flashing on a fast network. refresh
+  // degrades to local state on failure, so this never strands the user.
+  const onRefresh = async () => {
+    if (refreshingRef.current || !userIdRef.current) return
+    refreshingRef.current = true
+    setRefreshing(true)
+    const startedAt = performance.now()
+    try {
+      hydrateMerged(await refresh(user))
+    } catch (e) {
+      console.warn('[niyet] refresh failed:', e)
+    } finally {
+      const wait = Math.max(0, 500 - (performance.now() - startedAt))
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+      refreshingRef.current = false
+      setRefreshing(false)
+    }
+  }
 
   // Block 17: hold the first paint until Supabase has restored any persisted
   // session, so a signed-in reload never flashes the anonymous main view.
@@ -197,6 +228,9 @@ function App() {
       onAddSteps={() => setView('add')}
       onShowChains={() => setView('chains')}
       onOpenAuth={() => setView('auth')}
+      onRefresh={onRefresh}
+      refreshing={refreshing}
+      isSignedIn={Boolean(user)}
     />
   )
 }
@@ -217,44 +251,7 @@ function LoadingScreen() {
         backgroundColor: TOKENS.colors.bg,
       }}
     >
-      <div
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '160px',
-          height: '160px',
-        }}
-      >
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            background:
-              'radial-gradient(circle, rgba(31,177,121,0.28), transparent 70%)',
-            filter: 'blur(4px)',
-            animation: 'niyetBreath 2.4s ease-in-out infinite',
-          }}
-        />
-        <span
-          lang="ar"
-          dir="rtl"
-          style={{
-            position: 'relative',
-            fontFamily: TOKENS.fonts.arabic,
-            color: TOKENS.colors.goldLight,
-            fontSize: '4.5rem',
-            lineHeight: 1,
-            textShadow: '0 0 30px rgba(217,180,90,0.45)',
-            animation: 'niyetBreath 2.4s ease-in-out infinite',
-          }}
-        >
-          نية
-        </span>
-      </div>
+      <NiyetMark size={72} glow />
       <img
         src="/wordmark-cream.svg"
         alt="niyet"

@@ -6,6 +6,16 @@ import Bostan from './Bostan'
 import AuthHeader from './AuthHeader'
 import DoneLog from './DoneLog'
 import EmptyState from './EmptyState'
+import RefreshButton from './RefreshButton'
+import PullToRefresh from './PullToRefresh'
+
+// Resolve the pointer type once at module load: desktop (fine) gets the refresh
+// button, touch (coarse) gets pull-to-refresh. Pointer type is fixed for a
+// session in practice, so a single read is enough (and SSR-safe).
+const IS_COARSE_POINTER =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(pointer: coarse)').matches
 
 /** @typedef {{ id: string, text: string }} Task */
 
@@ -29,6 +39,9 @@ import EmptyState from './EmptyState'
  *   onAddSteps: () => void,
  *   onShowChains: () => void,
  *   onOpenAuth: () => void,
+ *   onRefresh: () => void,
+ *   refreshing: boolean,
+ *   isSignedIn: boolean,
  * }} props
  */
 export default function Queue({
@@ -46,7 +59,15 @@ export default function Queue({
   onAddSteps,
   onShowChains,
   onOpenAuth,
+  onRefresh,
+  refreshing,
+  isSignedIn,
 }) {
+  // Block 19: pull-to-refresh on touch devices, refresh button on desktop. Both
+  // gated on a signed-in user — anonymous state is local-only. The gesture lives
+  // in the PullToRefresh child so its per-frame updates don't re-render Queue.
+  const canPull = isSignedIn && IS_COARSE_POINTER
+  const showButton = isSignedIn && !IS_COARSE_POINTER
   const current = queue[0] ?? null
   const visibleTasks = queue.slice(0, showCount)
   const queued = queue.length - showCount
@@ -85,6 +106,7 @@ export default function Queue({
         padding: '1.5rem 1rem',
       }}
     >
+      <PullToRefresh onRefresh={onRefresh} refreshing={refreshing} enabled={canPull} />
       <div style={{ maxWidth: TOKENS.spacing.containerMaxWidth, width: '100%' }}>
         {/* Brand mark — the Aref Ruqaa wordmark on cream, the app's signature. */}
         <div
@@ -109,13 +131,14 @@ export default function Queue({
         <header
           style={{
             display: 'flex',
-            justifyContent: 'flex-start',
+            justifyContent: 'space-between',
             alignItems: 'center',
             minHeight: '48px',
             marginBottom: '8px',
           }}
         >
           <AuthHeader onOpenAuth={onOpenAuth} />
+          {showButton && <RefreshButton onRefresh={onRefresh} refreshing={refreshing} />}
         </header>
         {/* The bostan: a garden bed that fills with gold-line tulips, one per
             completed micro-action. Renders nothing at count 0. */}

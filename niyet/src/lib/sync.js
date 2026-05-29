@@ -362,7 +362,23 @@ export async function mergeOnLogin(user) {
   const userId = user?.id
   const local = getAll()
   if (!userId) return local
+  // Dedupe concurrent merges: the login effect and a manual refresh (or two
+  // rapid refreshes) must not each pull-and-setAll a different snapshot, or the
+  // slower write clobbers the faster one. Concurrent callers share the single
+  // in-flight merge and its result.
+  if (mergeInFlight) return mergeInFlight
+  mergeInFlight = performMerge(user, userId, local)
+  try {
+    return await mergeInFlight
+  } finally {
+    mergeInFlight = null
+  }
+}
 
+// Module-level guard backing mergeOnLogin's concurrent-merge dedupe.
+let mergeInFlight = null
+
+async function performMerge(user, userId, local) {
   await seedDefaultChains(userId)
 
   let remoteQueue
@@ -448,6 +464,26 @@ export async function mergeOnLogin(user) {
   setAll(merged)
   await flushPending(userId)
   return merged
+}
+
+/**
+ * Manual refresh (Block 19): push this device's queued ops up, then pull +
+ * three-way-merge remote into local and return the merged state for React to
+ * re-hydrate. Flushing first means deletes/reorders land remotely before the
+ * pull, so the merge can't re-introduce a locally-deleted item. (mergeOnLogin
+ * also flushes at its tail — redundant here but cheap: empty queue + mutex.)
+ *
+ * Anonymous users (no id) get local state untouched. Never throws — mergeOnLogin
+ * degrades to local state on a failed remote round-trip, so an offline refresh
+ * is a safe no-op that simply returns the current local state.
+ * @param {{ id: string } | null | undefined} user
+ * @returns {Promise<{ queue: object[], done: object[], chains: object[], show_count: number }>}
+ */
+export async function refresh(user) {
+  const userId = user?.id
+  if (!userId) return getAll()
+  await flushPending(userId)
+  return mergeOnLogin(user)
 }
 
 // --------------------------------------------------------------------------
