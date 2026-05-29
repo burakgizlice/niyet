@@ -1,0 +1,32 @@
+/* Block 7: celebration particle burst keyframes. Consumed by CelebrationBurst.jsx.
+ * Per-particle --dx/--dy (px magnitudes, applied via calc(* 1px)), --spin (deg),
+ * font-size, and animation-delay are set inline on each span; this file owns only
+ * the shared keyframe + the base particle rule. Bundled once by Vite, so the
+ * keyframe lives in the document a single time regardless of how many bursts fire. */
+@keyframes niyetBurst {
+  0% {
+    transform: translate(0, 0) scale(0.3) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    transform: translate(calc(var(--dx) * 0.15px), calc(var(--dy) * 0.15px))
+      scale(1.1) rotate(calc(var(--spin) * 0.15deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(var(--dx) * 1px), calc(var(--dy) * 1px)) scale(0.5)
+      rotate(calc(var(--spin) * 1deg));
+    opacity: 0;
+  }
+}
+
+.niyet-burst-particle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: niyetBurst 1.4s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+}
