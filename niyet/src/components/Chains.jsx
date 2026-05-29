@@ -1,24 +1,35 @@
 import { TOKENS } from '../tokens'
-import { useChains } from '../hooks/useChains'
 
 /**
- * Block 12: full-screen chains list (read-only). Reached via the view-router
- * 'chains' state. Tapping a card appends that chain's steps to the queue and
- * returns to main — the load action lives here (not in useChains) because it
- * needs the single queueApi's appendSteps, drilled from App (spec Q1).
+ * Block 12: read-only chains list (tap to load). Block 13: adds an edit pencil
+ * per row and a 'Yeni zincir' entry point. The list stays calm — no delete in
+ * the row (delete lives inside ChainEdit, spec Q2/13.5) to avoid accidental
+ * destructive taps in a packed mobile list.
  *
- * No create/edit/delete affordances — those are Block 13. The empty-state guard
- * won't fire in practice (DEFAULT_CHAINS always has 7) but stays for when Block
- * 14 makes the list user-mutable.
+ * Receives `chains` + navigation setters as props: App owns the single useChains
+ * instance, so this component must not call the hook itself.
  *
- * @param {{ setView: (view: string) => void, appendSteps: (steps: string[]) => void }} props
+ * @param {{
+ *   chains: import('../data/defaultChains').Chain[],
+ *   setView: (view: string) => void,
+ *   setSelectedChain: (chain: import('../data/defaultChains').Chain | null) => void,
+ *   appendSteps: (steps: string[]) => void,
+ * }} props
  */
-export default function Chains({ setView, appendSteps }) {
-  const { chains } = useChains()
-
+export default function Chains({ chains, setView, setSelectedChain, appendSteps }) {
   const loadChain = (chain) => {
     appendSteps(chain.steps)
     setView('main')
+  }
+
+  const editChain = (chain) => {
+    setSelectedChain(chain)
+    setView('chain-edit')
+  }
+
+  const createNew = () => {
+    setSelectedChain(null)
+    setView('chain-edit')
   }
 
   return (
@@ -83,7 +94,18 @@ export default function Chains({ setView, appendSteps }) {
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {chains.map((chain) => (
-              <li key={chain.id}>
+              <li
+                key={chain.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  gap: '8px',
+                  background: TOKENS.colors.surface,
+                  border: `1px solid ${TOKENS.colors.emeraldDim}`,
+                  borderRadius: TOKENS.radii.card,
+                  overflow: 'hidden',
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => loadChain(chain)}
@@ -91,13 +113,12 @@ export default function Chains({ setView, appendSteps }) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '16px',
-                    width: '100%',
+                    flex: 1,
                     minHeight: '56px',
                     textAlign: 'left',
-                    background: TOKENS.colors.surface,
+                    background: 'transparent',
                     color: TOKENS.colors.textPrimary,
-                    border: `1px solid ${TOKENS.colors.emeraldDim}`,
-                    borderRadius: TOKENS.radii.card,
+                    border: 'none',
                     padding: '0.9rem 1.1rem',
                     cursor: 'pointer',
                     fontFamily: TOKENS.typography.fontFamily,
@@ -108,10 +129,47 @@ export default function Chains({ setView, appendSteps }) {
                   </span>
                   <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>{chain.name}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => editChain(chain)}
+                  aria-label="Düzenle"
+                  style={{
+                    flexShrink: 0,
+                    width: '52px',
+                    background: 'transparent',
+                    color: TOKENS.colors.textMuted,
+                    border: 'none',
+                    borderLeft: `1px solid ${TOKENS.colors.emeraldDim}`,
+                    fontSize: '1.1rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✎
+                </button>
               </li>
             ))}
           </ul>
         )}
+
+        <button
+          type="button"
+          onClick={createNew}
+          style={{
+            alignSelf: 'center',
+            marginTop: '1.5rem',
+            background: TOKENS.colors.surfaceRaised,
+            color: TOKENS.colors.gold,
+            fontWeight: 600,
+            fontSize: '1rem',
+            border: `1px solid ${TOKENS.colors.gold}`,
+            borderRadius: '999px',
+            padding: '10px 24px',
+            minHeight: '44px',
+            cursor: 'pointer',
+          }}
+        >
+          + Yeni zincir
+        </button>
       </div>
     </div>
   )

@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import Queue from './components/Queue'
 import AddSteps from './components/AddSteps'
 import Chains from './components/Chains'
+import ChainEdit from './components/ChainEdit'
 import CelebrationBurst from './components/CelebrationBurst'
 import { useDone } from './hooks/useDone'
 import { useQueue } from './hooks/useQueue'
+import { useChains } from './hooks/useChains'
 import useStreak from './hooks/useStreak'
 import { unlockAudio } from './lib/audio'
 
@@ -15,6 +17,12 @@ function App() {
   const { done, addDone, clearDone } = useDone()
   const queueApi = useQueue({ addDone })
   const { incrementStreak, resetStreak } = useStreak()
+
+  // useChains is stateful (Block 13 CRUD), so it lives here as a single instance
+  // and is prop-drilled to Chains/ChainEdit — calling it in each component would
+  // fork the collection. selectedChain carries the edit target: null = create.
+  const { chains, createChain, updateChain, deleteChain, resetChain } = useChains()
+  const [selectedChain, setSelectedChain] = useState(null)
 
   // View router (Block 9). Valid views: 'main' | 'add' | 'chains' | 'chain-edit'
   // | 'auth'. Only 'main' and 'add' are rendered here; the other three are
@@ -76,7 +84,34 @@ function App() {
   }
 
   if (view === 'chains') {
-    return <Chains setView={setView} appendSteps={queueApi.appendSteps} />
+    return (
+      <Chains
+        chains={chains}
+        setView={setView}
+        setSelectedChain={setSelectedChain}
+        appendSteps={queueApi.appendSteps}
+      />
+    )
+  }
+
+  if (view === 'chain-edit') {
+    const handleChainSave = ({ name, emoji, steps }) => {
+      if (selectedChain === null) {
+        createChain(name, emoji, steps)
+      } else {
+        updateChain(selectedChain.id, { name, emoji, steps })
+      }
+      setView('chains')
+    }
+    return (
+      <ChainEdit
+        chain={selectedChain}
+        onSave={handleChainSave}
+        onCancel={() => setView('chains')}
+        onDelete={deleteChain}
+        onReset={resetChain}
+      />
+    )
   }
 
   return (
