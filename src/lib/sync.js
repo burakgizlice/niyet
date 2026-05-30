@@ -105,13 +105,22 @@ export function mergeChains(local, remote) {
  * list: on a duplicate id the lower position is kept (18.5), then the union is
  * ordered by position and reindexed 0..n-1. Kept separate from mergeItems
  * because the queue's identity is order, not completion time.
+ *
+ * `excludeIds` is a tombstone set (Block 19 fix): any item whose id is in it is
+ * dropped from the result. The done log doubles as the queue's tombstone — a
+ * completed task's done item reuses the queue id (useQueue finalizeComplete) and
+ * new queue items always get a fresh UUID, so an id present in the done set
+ * provably identifies a completed item that must not survive (or resurrect) in
+ * the queue. Defaults to empty so existing callers are unaffected.
  * @param {{ id: string, text: string, position?: number }[]} local
  * @param {{ id: string, text: string, position?: number }[]} remote
+ * @param {Set<string>} [excludeIds]
  * @returns {{ id: string, text: string, position: number }[]}
  */
-export function mergeQueue(local, remote) {
+export function mergeQueue(local, remote, excludeIds = new Set()) {
   const byId = new Map()
   for (const item of [...local, ...remote]) {
+    if (excludeIds.has(item.id)) continue
     const existing = byId.get(item.id)
     if (!existing) {
       byId.set(item.id, item)
@@ -410,7 +419,12 @@ async function performMerge(user, userId, local) {
   const remoteQueueIds = new Set(remoteQueue.map((i) => i.id))
   const remoteDoneIds = new Set(remoteDone.map((i) => i.id))
   const remoteChainIds = new Set(remoteChains.map((c) => c.id))
-  const queueOrphans = local.queue.filter((i) => !remoteQueueIds.has(i.id))
+  // Block 19 fix: the done log is the queue's tombstone. A completed task's done
+  // item reuses the queue id, so any id present in the (local or remote) done set
+  // is a finished task that must neither survive the queue merge nor be re-pushed
+  // as an orphan — otherwise a stale device resurrects it into the remote queue.
+  const doneIds = new Set([...local.done.map((i) => i.id), ...remoteDone.map((i) => i.id)])
+  const queueOrphans = local.queue.filter((i) => !remoteQueueIds.has(i.id) && !doneIds.has(i.id))
   const doneOrphans = local.done.filter((i) => !remoteDoneIds.has(i.id))
   const chainOrphans = local.chains.filter((c) => !remoteChainIds.has(c.id))
   try {
@@ -447,7 +461,7 @@ async function performMerge(user, userId, local) {
     console.warn('[niyet/sync] pushing local orphans failed (merge still proceeds):', e)
   }
 
-  const mergedQueue = mergeQueue(local.queue, remoteQueue)
+  const mergedQueue = mergeQueue(local.queue, remoteQueue, doneIds)
   const mergedDone = mergeItems(local.done, remoteDone, (i) => i.id)
   const mergedChains = mergeChains(local.chains, remoteChains)
 

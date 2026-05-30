@@ -2,7 +2,7 @@
 
 <img src="niyet-tulip-1024.png" alt="niyet" width="120" />
 
-# niyet
+# niyet app
 
 **The moment between paralysis and the first step.**
 
@@ -11,9 +11,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-1FB179.svg)](LICENSE)
 &nbsp;·&nbsp; React 19 &nbsp;·&nbsp; Vite &nbsp;·&nbsp; Supabase &nbsp;·&nbsp; Cloudflare &nbsp;·&nbsp; PWA
 
+### 🌷 [**Try it live → niyet.burakgizlice.com**](https://niyet.burakgizlice.com)
+
+*No sign-up, no setup. Open it and you're already in — add a step in seconds.*
+
 </div>
 
 ---
+
+> Hey — thanks for being here. 👋
+>
+> This one is personal. niyet didn't start as a side project or a portfolio piece; it started on a hard day, as something I genuinely needed and couldn't find. If you have a brain that gets stuck on the part where you *start*, I hope it helps you the way it helped me.
+>
+> You don't need to install anything or make an account to feel it — just open **[niyet.burakgizlice.com](https://niyet.burakgizlice.com)** and start. Everything saves on your device; signing in later is optional, and only ever *adds* (it never costs you what you already did). And if you just want to read how it came to be, the story is all here — pull up a chair.
 
 ## What this is
 
@@ -28,6 +38,40 @@ The core idea is simple and it runs against the grain of almost every task manag
 One action fills the screen. You do it. The next slides in. Behind that single card sits a queue you don't have to look at, a library of pre-saved rituals you can drop in with one tap, and a garden that grows a tulip every time you act — and *never* wilts when you don't.
 
 > **niyet** — from the Arabic *niyyah* (نية): **intention.** The formal intention set before prayer, and the everyday decision to begin something. It is the exact gap the app lives in.
+
+---
+
+## A look inside
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center" width="50%">
+<img src="docs/media/complete.gif" alt="Completing a step: a calligraphic blade draws through the task and a tulip blooms in the garden" width="280" /><br/>
+<sub><b>One step at a time.</b><br/>Tap to finish — a qalam blade draws clean through it, and the <i>bostan</i> grows a tulip. It never wilts.</sub>
+</td>
+<td align="center" width="50%">
+<img src="docs/media/load-chain.gif" alt="Loading a pre-saved ritual chain with a single tap fills the queue" width="280" /><br/>
+<sub><b>A ritual in one tap.</b><br/>Seven decisions become one — load a chain and the queue fills itself.</sub>
+</td>
+</tr>
+</table>
+
+<br/>
+
+<img src="docs/media/desktop.png" alt="niyet running on desktop — a single task card, the count toggle, and the garden" width="760" />
+
+<br/><br/>
+
+<img src="docs/media/mobile.png" alt="niyet on a phone — the single-step queue" width="240" />
+&nbsp;&nbsp;&nbsp;
+<img src="docs/media/chains.png" alt="The chains library — seven seeded rituals" width="240" />
+
+<br/>
+<sub>On the phone it was made for — the single step, and the library of seven seeded rituals.</sub>
+
+</div>
 
 ---
 
@@ -157,10 +201,11 @@ A deliberately lean stack — chosen so the app loads fast and stays out of the 
 
 ## Getting started
 
-The app lives in [`niyet/`](niyet/).
+Just want to *use* it? It's live at **[niyet.burakgizlice.com](https://niyet.burakgizlice.com)** — no account, nothing to install. Everything below is for running it yourself.
+
+Clone it, install, run — that's the whole ceremony.
 
 ```bash
-cd niyet
 npm install
 npm run dev          # local dev server (Vite)
 ```
@@ -172,7 +217,7 @@ cp .env.example .env
 # set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
 ```
 
-The database schema lives in [`niyet/supabase/migrations/`](niyet/supabase/migrations/) — run it in the Supabase SQL editor or via the CLI/MCP. Without env vars the app still runs fully in anonymous/offline mode.
+The database schema lives in [`supabase/migrations/`](supabase/migrations/) — run it in the Supabase SQL editor or via the CLI/MCP. Without env vars the app still runs fully in anonymous/offline mode — so you can poke around in under a minute with nothing to configure.
 
 ```bash
 npm run lint         # eslint
@@ -184,7 +229,7 @@ npm run deploy       # build + wrangler deploy (Cloudflare)
 ### Project layout
 
 ```
-niyet/
+.
 ├── src/
 │   ├── components/     # Queue, TaskCard, Chains, ChainEdit, Bostan, CalligraphicCut, Auth…
 │   ├── hooks/          # useQueue, useChains, useDone, useStreak, useAuth, useLongPress
@@ -194,7 +239,8 @@ niyet/
 │   ├── styles/         # bostan, calligraphic-cut, checkmark
 │   └── tokens.js       # single source of truth for the design system
 ├── public/             # icons, manifest, wordmarks, favicon
-└── supabase/migrations # RLS-scoped schema
+├── supabase/migrations # RLS-scoped schema
+└── docs/               # Supabase auth setup notes
 ```
 
 ---

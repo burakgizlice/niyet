@@ -90,6 +90,51 @@ describe('mergeQueue', () => {
     const local = [{ id: 'a', text: 'a', position: 0, created_at: 'x', user_id: 'u' }]
     expect(mergeQueue(local, [])).toEqual([{ id: 'a', text: 'a', position: 0 }])
   })
+
+  // Block 19 fix: excludeIds is the done-log tombstone — completed ids must not
+  // survive the queue merge (or resurrect from a stale device's union).
+  it('treats an omitted excludeIds as a no-op (backward compatible)', () => {
+    const local = [{ id: 'a', text: 'a', position: 0 }]
+    const remote = [{ id: 'b', text: 'b', position: 1 }]
+    expect(mergeQueue(local, remote, new Set()).map((i) => i.id)).toEqual(['a', 'b'])
+    expect(mergeQueue(local, remote, new Set())).toEqual(mergeQueue(local, remote))
+  })
+
+  it('drops a tombstoned id present in local only', () => {
+    const local = [{ id: 'a', text: 'a', position: 0 }]
+    expect(mergeQueue(local, [], new Set(['a']))).toEqual([])
+  })
+
+  it('drops a tombstoned id present in remote only', () => {
+    const remote = [{ id: 'a', text: 'a', position: 0 }]
+    expect(mergeQueue([], remote, new Set(['a']))).toEqual([])
+  })
+
+  it('drops a tombstoned id present in both local and remote', () => {
+    const local = [{ id: 'a', text: 'a', position: 3 }]
+    const remote = [{ id: 'a', text: 'a-remote', position: 0 }]
+    expect(mergeQueue(local, remote, new Set(['a']))).toEqual([])
+  })
+
+  it('reindexes survivors to contiguous positions after exclusion', () => {
+    const local = [
+      { id: 'a', text: 'a', position: 0 },
+      { id: 'b', text: 'b', position: 1 },
+      { id: 'c', text: 'c', position: 2 },
+    ]
+    // tombstone the middle item -> a and c remain, repositioned 0 and 1
+    expect(mergeQueue(local, [], new Set(['b']))).toEqual([
+      { id: 'a', text: 'a', position: 0 },
+      { id: 'c', text: 'c', position: 1 },
+    ])
+  })
+
+  it('drops nothing when excludeIds matches no item', () => {
+    const local = [{ id: 'a', text: 'a', position: 0 }]
+    expect(mergeQueue(local, [], new Set(['zzz']))).toEqual([
+      { id: 'a', text: 'a', position: 0 },
+    ])
+  })
 })
 
 describe('mergeChains', () => {
