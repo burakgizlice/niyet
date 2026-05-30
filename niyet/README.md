@@ -1,16 +1,42 @@
-# React + Vite
+# niyet — app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the application package. For the full story, philosophy, and design notes, see the [root README](../README.md).
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+React 19 · Vite 8 · vite-plugin-pwa · Supabase (Auth + Postgres + RLS) · Cloudflare (Wrangler) · Web Audio · Vitest · ESLint.
 
-## React Compiler
+## Develop
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev          # Vite dev server
+npm run lint         # ESLint
+npm run test         # Vitest
+npm run build        # production build
+npm run deploy       # build + wrangler deploy
+```
 
-## Expanding the ESLint configuration
+## Sync (optional)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The app is fully usable anonymously/offline — state lives in `localStorage`. To enable cloud sync:
+
+```bash
+cp .env.example .env
+# set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+```
+
+Schema lives in [`supabase/migrations/`](supabase/migrations/) — apply it in the Supabase SQL editor or via the CLI/MCP. On first sign-in, `src/lib/sync.js` merges local state into the cloud so nothing is lost.
+
+## Layout
+
+```
+src/
+├── components/   # Queue, TaskCard, Chains, ChainEdit, Bostan, CalligraphicCut, Auth…
+├── hooks/        # useQueue, useChains, useDone, useStreak, useAuth, useLongPress
+├── context/      # AuthContext, StreakContext
+├── lib/          # supabase, sync, storage, audio, garden, pwa
+├── data/         # defaultChains.js — the seven seeded rituals
+├── styles/       # bostan, calligraphic-cut, checkmark
+└── tokens.js     # design system source of truth
+```
